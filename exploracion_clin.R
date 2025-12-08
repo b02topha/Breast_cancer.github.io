@@ -2,6 +2,9 @@
 #install.packages("dplyr")
 #install.packages("naniar")
 #install.packages("FSA")
+#install.packages("survival")
+#install.packages("survminer")
+#install.packages("splines")
 
 #dependencias
 library(readxl)
@@ -10,6 +13,9 @@ library(naniar)
 library(ggplot2)
 library(tidyr)
 library(FSA)
+library(survival)
+library(survminer)
+library(splines)
 
 #cargamos base de datos
 data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv")
@@ -146,3 +152,22 @@ significativos %>%
 #A mayor etapa de tumor, peor supervivencia.
 
 #quiero graficar la edad de diagnóstico y la supervivencia
+
+#quiero graficar el tamaño del tumor y la supervivencia
+coxph(Surv(overall_survival_months, overall_survival) ~ tumor_size, data = datos_clinicos) #no hay relación entre tamaño del tumor y supervivencia
+
+
+ggsurvplot(survfit(Surv(overall_survival_months, overall_survival) ~ tumor_stage, 
+                   data = datos_clinicos)) #parece que hay diferencias
+
+ggplot(datos_clinicos, aes(x = tumor_size, y = overall_survival_months)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess", color = "blue") +
+  labs(title = "Relación entre tamaño del tumor y supervivencia",
+       x = "Tamaño del tumor (mm)",
+       y = "Supervivencia global (meses)") +
+  theme_minimal()
+
+
+
+
