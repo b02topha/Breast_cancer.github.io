@@ -168,6 +168,6 @@ ggplot(datos_clinicos, aes(x = tumor_size, y = overall_survival_months)) +
        y = "Supervivencia global (meses)") +
   theme_minimal()
 
-
+esto es una prueba
 
 
