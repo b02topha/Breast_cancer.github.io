@@ -1,6 +1,7 @@
 library(survival)
 library(readxl)
 library(dplyr)
+library(survminer)
 
 # vamos a explorar los datos con uniq
 
@@ -131,3 +132,109 @@ vif_results <- vif(lm_model)
 print("Resultados del Factor de Inflación de la Varianza (VIF):")
 print(vif_results)
 #que no haya colinealidad indica que el modelo está bien
+
+###############################################
+# AHORA QUIERO RELACIONAR LATERALIDAD DEL TUMOR CON SUPERVIVENCIA #
+# 1. Seleccionar y limpiar los datos para incluir Lateralidad
+unique(datos_clinicos$primary_tumor_laterality) #hay espacios en blanco que afectaran, hay que considerarlos como NAs
+# 1. Seleccionar y limpiar los datos para incluir Lateralidad
+
+# Creamos un nuevo data frame de análisis, filtrando los valores vacíos ("")
+datos_analisis_lateralidad <- datos_clinicos %>%
+  select(overall_survival_months, overall_survival, 
+         primary_tumor_laterality) %>% 
+  
+  # FILTRO CLAVE: Excluir las filas donde primary_tumor_laterality es una cadena vacía ""
+  filter(primary_tumor_laterality != "") %>% 
+  
+  # Asegurar que las variables categóricas sean factores
+  mutate(primary_tumor_laterality = factor(primary_tumor_laterality)) 
+
+
+# 2. Crear el objeto de supervivencia (Surv Object)
+survival_object <- Surv(datos_analisis_lateralidad$overall_survival_months, 
+                        datos_analisis_lateralidad$overall_survival)
+
+# 3. Ajustar el modelo Kaplan-Meier por lateralidad
+km_laterality <- survfit(survival_object ~ primary_tumor_laterality, 
+                         data = datos_analisis_lateralidad)
+
+# 4. Realizar el Test de Log-Rank
+log_rank_test <- survdiff(survival_object ~ primary_tumor_laterality, 
+                          data = datos_analisis_lateralidad)
+
+print("Resultados del Test de Log-Rank para Lateralidad:")
+print(log_rank_test)
+
+# 5. Generar el gráfico de Kaplan-Meier
+kaplan_meier_plot <- ggsurvplot(
+  km_laterality, 
+  data = datos_analisis_lateralidad, 
+  pval = TRUE,                       # Mostrar el p-valor del Log-Rank
+  risk.table = TRUE,                 # Mostrar la tabla de riesgo debajo del gráfico
+  legend.title = "Lateralidad del Tumor",
+  title = "Curvas de Supervivencia Global por Lateralidad del Tumor",
+  xlab = "Tiempo en meses",
+  palette = c("purple", "orange") # Colores para Izquierdo/Derecho
+)
+
+# 6. Mostrar el gráfico
+print(kaplan_meier_plot)
+#existe diferencia significativa
+
+# vamos a hacer un modelo de Cox
+# 1. Ajustar el Modelo de Cox (Univariante)
+# Usamos primary_tumor_laterality como único predictor
+cox_laterality_model <- coxph(survival_object ~ primary_tumor_laterality, 
+                              data = datos_analisis_lateralidad)
+
+# 2. Imprimir el resumen del modelo para obtener el Hazard Ratio (HR)
+summary(cox_laterality_model)
+#interpretación:Los pacientes con cáncer de mama en el lado Derecho tienen un 17.42% más de riesgo de morir en cualquier momento dado en comparación con los pacientes con cáncer de mama en el lado Izquierdo.
+
+##########################################################################
+# AHORA COMPARAMOS TRIPLE NEGATIVO para ver si es más agresivo y tiene peor pronóstico: se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
+unique(datos_clinicos$er_status)
+unique(datos_clinicos$pr_status)
+unique(datos_clinicos$her2_status)
+
+# Asumimos que "Negative" significa ausencia de receptor.
+# Usaremos el data frame original de datos clínicos.
+datos_tnbc <- datos_clinicos %>%
+  select(overall_survival_months, overall_survival, 
+         er_status, pr_status, her2_status) %>%
+  
+  # 1. Crear la variable TNBC_status
+  mutate(
+    TNBC_status = case_when(
+      er_status == "Negative" & pr_status == "Negative" & her2_status == "Negative" ~ "TNBC",
+      TRUE ~ "Non_TNBC"
+    )
+  ) %>%
+  
+  # 2. Filtrar filas con NAs en los marcadores de supervivencia
+  filter(!is.na(overall_survival_months) & !is.na(overall_survival)) %>%
+  
+  # 3. Convertir a factor para el análisis
+  mutate(TNBC_status = factor(TNBC_status))
+
+# 4. Crear el objeto de supervivencia
+surv_object_tnbc <- Surv(datos_tnbc$overall_survival_months, 
+                         datos_tnbc$overall_survival)
+# A. Kaplan-Meier (Ver la diferencia visual y obtener el p-valor)
+km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
+
+ggsurvplot(km_tnbc, 
+           data = datos_tnbc,
+           pval = TRUE,             # Mostrar p-valor
+           risk.table = TRUE,       # Mostrar tabla de riesgo
+           legend.title = "Estado Triple Negativo",
+           title = "Supervivencia Global (TNBC vs. No-TNBC)")
+
+# B. Modelo de Cox (Cuantificar el riesgo HR)
+cox_tnbc_model <- coxph(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
+
+print("Resumen del Modelo de Cox para TNBC:")
+summary(cox_tnbc_model)
+
+#interpretación: es significativo, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
