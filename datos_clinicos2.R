@@ -238,3 +238,28 @@ print("Resumen del Modelo de Cox para TNBC:")
 summary(cox_tnbc_model)
 
 #interpretación: es significativo, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
+
+#####################################
+# quiero ver cuantas pacientes son pre-post menopáusicas
+# 1. Limpieza y preparación
+# Crear un data frame limpio solo con la variable de interés, eliminando valores vacíos o NAs.
+datos_grafico_menopausia <- datos_clinicos %>%
+  filter(!is.na(inferred_menopausal_state) & inferred_menopausal_state != "") %>%
+  mutate(inferred_menopausal_state = factor(inferred_menopausal_state))
+
+# 2. Generar el gráfico de barras
+grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
+                                    aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
+  geom_bar() +
+  
+  # Añadir las etiquetas de conteo encima de cada barra
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5, size = 5) +
+  
+  labs(title = "Distribución de Pacientes por Estado Menopáusico",
+       x = "Estado Menopáusico",
+       y = "Número de Pacientes") +
+  
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+
+print(grafico_barras_menopausia)

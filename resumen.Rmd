@@ -1,0 +1,183 @@
+---
+title: "Resumen"
+author: "Andrea Torres Philpott"
+date: "2025-12-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Esto es todo lo que tenemos hasta ahora 13/12
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(readxl)
+library(dplyr)
+library(naniar)
+library(ggplot2)
+library(tidyr)
+library(FSA)
+library(survival)
+library(survminer)
+library(splines)
+library(stats)
+```
+
+
+1. Separación de datos
+Primero hemos identificado los datos clínicos de los genéticos
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv")
+
+col_datosclinicos <- colnames(data) %>% 
+  head(n = 31)
+
+datos_clinicos <- data %>% 
+  select(col_datosclinicos) #selecciono datos clinicos de toda la base de datos (data)
+
+# converir valores vacíos a NA
+datos_clinicos[datos_clinicos == ""] <- NA
+```
+
+```{r}
+dim(datos_clinicos)
+str(datos_clinicos)
+```
+
+2. Gráfico de tumor_stage
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# 1. Limpieza y preparación de datos (CORREGIDO)
+datos_grafico_tumor <- datos_clinicos %>%
+  
+  # Paso A: Convertir a caracter para manejar la cadena vacía
+  mutate(tumor_stage = as.character(tumor_stage)) %>%
+  
+  # Paso B: Convertir cadenas vacías ("") a NA (ahora funciona)
+  mutate(tumor_stage = na_if(tumor_stage, "")) %>%
+  
+  # Paso C: Filtrar todos los NA (los originales y los recién creados)
+  filter(!is.na(tumor_stage)) %>%
+  
+  # Paso D: Convertir la columna a factor para la gráfica
+  mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que sea ordenado
+
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# 2. Generar el Gráfico de Caja (Box Plot)
+boxplot_supervivenciafinal <- datos_grafico_tumor %>%
+  ggplot(aes(x = tumor_stage, y = overall_survival_months, fill = tumor_stage)) +
+  geom_boxplot(show.legend= FALSE) +
+  geom_jitter(color="black", size=0.4, alpha=0.5, show.legend = FALSE) +
+  labs(
+    title = "Supervivencia Global por Etapa del Tumor (METABRIC)",
+    x = "Etapa del Tumor",
+    y = "Supervivencia Global (Meses)",
+    fill = "Etapa"
+  ) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_viridis_d(option= "D")
+
+print(boxplot_supervivenciafinal)
+```
+
+¿Son datos significativos? 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Existen diferencias significativas?
+
+#Comprobamos normalidad
+shapiro.test(datos_grafico_tumor$overall_survival_months) # distribución no normal
+kruskal.test(overall_survival_months ~ tumor_stage, data= datos_grafico_tumor) #existen diferencias
+
+# 1. Preparar el data frame para Dunn's Test
+# Usamos las columnas de supervivencia y el tumor_stage limpio.
+datos_dunn <- datos_clinicos %>%
+  # Limpieza del tumor_stage (misma lógica que antes)
+  mutate(tumor_stage = as.character(tumor_stage)) %>%
+  mutate(tumor_stage = na_if(tumor_stage, "")) %>%
+  filter(!is.na(tumor_stage) & !is.na(overall_survival_months)) %>%
+  
+  # Asegurar que la variable de agrupamiento es un factor
+  mutate(tumor_stage = factor(tumor_stage))
+
+# 2. Ejecutar el Test de Dunn con corrección de Bonferroni
+# (Reemplazando tu variable original `datos_grafico_tumor` por `datos_dunn`)
+resultado_dunn <- dunnTest(overall_survival_months ~ tumor_stage,
+                           data = datos_dunn, 
+                           method = "bonferroni")
+
+print("Resultado del Test Post-Hoc de Dunn (Bonferroni):")
+print(resultado_dunn)
+```
+
+La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente de la 2, 3 y 4.
+Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
+A mayor etapa de tumor, peor supervivencia.
+
+2. Grafico tamaño del tumor y supervivencia: este no lo usaría para la presentación
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+coxph(Surv(overall_survival_months, overall_survival) ~ tumor_size, data = datos_clinicos) #no hay relación entre tamaño del tumor y supervivencia
+
+
+ggsurvplot(survfit(Surv(overall_survival_months, overall_survival) ~ tumor_stage, 
+                   data = datos_clinicos)) #parece que hay diferencias
+
+ggplot(datos_clinicos, aes(x = tumor_size, y = overall_survival_months)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess", color = "blue") +
+  labs(title = "Relación entre tamaño del tumor y supervivencia",
+       x = "Tamaño del tumor (mm)",
+       y = "Supervivencia global (meses)") +
+  theme_minimal()
+```
+3. Relación entre her2+ y supervivencia
+```{r}
+# quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
+unique(datos_clinicos$her2_status)
+str(datos_clinicos$her2_status)
+
+#importante que no tenga NA y que sea un factor
+datos_her2 <- datos_clinicos %>%
+  filter(!is.na(her2_status)) %>%
+  # Convertimos a factor, aunque es probable que ya lo sea
+  mutate(her2_status = factor(her2_status))
+str(datos_her2) #ahora si es un factor
+
+
+unique(datos_clinicos$overall_survival)
+str(datos_clinicos$overall_survival_months)
+
+# 2. Crear el Objeto de Supervivencia (Surv Object)
+# 'overall_survival_months' = tiempo
+# 'overall_survival' = evento (1=fallecido, 0=vivo/censurado)
+surv_object_her2 <- Surv(time = datos_her2$overall_survival_months, 
+                         event = datos_her2$overall_survival)
+
+
+## 2. Crear el objeto de supervivencia
+# Tiempo: overall_survival_months
+# Evento: overall_survival (1=fallecido, 0=vivo/censurado)
+surv_object_her2 <- Surv(time = datos_her2_supervivencia$overall_survival_months, 
+                         event = datos_her2_supervivencia$overall_survival)
+
+# 3. Ajustar el Modelo de Kaplan-Meier
+# Ajustamos la supervivencia en función del estado HER2
+fit_km_her2 <- survfit(surv_object_her2 ~ her2_status, data = datos_her2)
+
+# 4. Generar el Gráfico y el Log-rank Test
+km_her2_plot <- ggsurvplot(fit_km_her2, 
+                           data = datos_her2,
+                           pval = TRUE,             # Muestra el valor p de la prueba Log-rank
+                           risk.table = TRUE,       # Muestra la tabla de riesgo
+                           legend.title = "Estado HER2",
+                           title = "Curvas de Supervivencia Global por Estado HER2",
+                           palette = c("#E7B800", "#2E9FDF") # Colores para HER2- y HER2+
+)
+
+print(km_her2_plot)
+```
+
