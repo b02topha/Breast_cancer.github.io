@@ -1,15 +1,17 @@
 ---
 title: "Resumen"
-author: "Andrea Torres Philpott"
-date: "2025-12-13"
-output: html_document
+author: "Andrea Murillo Espinar, Andrea Torres Philpott"
+date: "R Sys.date()"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-Esto es todo lo que tenemos hasta ahora 13/12
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 library(readxl)
@@ -24,8 +26,9 @@ library(splines)
 library(stats)
 ```
 
+# Introducción
 
-1. Separación de datos
+## Separación de datos
 Primero hemos identificado los datos clínicos de los genéticos
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -46,7 +49,7 @@ dim(datos_clinicos)
 str(datos_clinicos)
 ```
 
-2. Gráfico de tumor_stage
+# Gráfico de tumor_stage
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # 1. Limpieza y preparación de datos (CORREGIDO)
 datos_grafico_tumor <- datos_clinicos %>%
@@ -118,23 +121,7 @@ La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente
 Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
-2. Grafico tamaño del tumor y supervivencia: este no lo usaría para la presentación
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-coxph(Surv(overall_survival_months, overall_survival) ~ tumor_size, data = datos_clinicos) #no hay relación entre tamaño del tumor y supervivencia
-
-
-ggsurvplot(survfit(Surv(overall_survival_months, overall_survival) ~ tumor_stage, 
-                   data = datos_clinicos)) #parece que hay diferencias
-
-ggplot(datos_clinicos, aes(x = tumor_size, y = overall_survival_months)) +
-  geom_point(alpha = 0.3) +
-  geom_smooth(method = "loess", color = "blue") +
-  labs(title = "Relación entre tamaño del tumor y supervivencia",
-       x = "Tamaño del tumor (mm)",
-       y = "Supervivencia global (meses)") +
-  theme_minimal()
-```
-3. Relación entre her2+ y supervivencia
+2. Relación entre her2+ y supervivencia
 ```{r}
 # quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
@@ -161,8 +148,8 @@ surv_object_her2 <- Surv(time = datos_her2$overall_survival_months,
 ## 2. Crear el objeto de supervivencia
 # Tiempo: overall_survival_months
 # Evento: overall_survival (1=fallecido, 0=vivo/censurado)
-surv_object_her2 <- Surv(time = datos_her2_supervivencia$overall_survival_months, 
-                         event = datos_her2_supervivencia$overall_survival)
+surv_object_her2 <- Surv(time = datos_her2$overall_survival_months, 
+                         event = datos_her2$overall_survival)
 
 # 3. Ajustar el Modelo de Kaplan-Meier
 # Ajustamos la supervivencia en función del estado HER2
@@ -181,3 +168,57 @@ km_her2_plot <- ggsurvplot(fit_km_her2,
 print(km_her2_plot)
 ```
 
+Ahora vamos a ver el pronóstico del cáncer Triple negativo, se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+unique(datos_clinicos$er_status)
+unique(datos_clinicos$pr_status)
+unique(datos_clinicos$her2_status)
+```
+
+Asumimos que "Negative" significa ausencia de receptor.
+Usaremos el data frame original de datos clínicos.
+```{r}
+datos_tnbc <- datos_clinicos %>%
+  select(overall_survival_months, overall_survival, 
+         er_status, pr_status, her2_status) %>%
+  
+  # 1. Crear la variable TNBC_status
+  mutate(
+    TNBC_status = case_when(
+      er_status == "Negative" & pr_status == "Negative" & her2_status == "Negative" ~ "TNBC",
+      TRUE ~ "Non_TNBC"
+    )
+  ) %>%
+  
+  # 2. Filtrar filas con NAs en los marcadores de supervivencia
+  filter(!is.na(overall_survival_months) & !is.na(overall_survival)) %>%
+  
+  # 3. Convertir a factor para el análisis
+  mutate(TNBC_status = factor(TNBC_status))
+
+# 4. Crear el objeto de supervivencia
+surv_object_tnbc <- Surv(datos_tnbc$overall_survival_months, 
+                         datos_tnbc$overall_survival)
+# A. Kaplan-Meier (Ver la diferencia visual y obtener el p-valor)
+km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
+```
+
+
+```{r}
+ggsurvplot(km_tnbc, 
+           data = datos_tnbc,
+           pval = TRUE,             # Mostrar p-valor
+           risk.table = TRUE,       # Mostrar tabla de riesgo
+           legend.title = "Estado Triple Negativo",
+           title = "Supervivencia Global (TNBC vs. No-TNBC)")
+
+# B. Modelo de Cox (Cuantificar el riesgo HR)
+cox_tnbc_model <- coxph(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
+
+print("Resumen del Modelo de Cox para TNBC:")
+summary(cox_tnbc_model)
+
+```
+
+
+Interpretación: es significativo, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
