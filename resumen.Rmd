@@ -9,10 +9,13 @@ author: "Andrea Murillo Espinar, Andrea Torres Philpott"
 date: "`r Sys.Date()`"
 output: 
   html_document:
+    highlight: tango # colores 
+    css: estilos_personalizados.css
     toc: true
     number_sections: true
 bibliography: ["breast_cancer.bib", "libraries.bib"]
 link-citations: true
+
 ---
 
 ```{r setup, include=FALSE}
@@ -33,26 +36,32 @@ library(stats)
 ```
 
 # **Introducción**
+El cáncer de mama es una enfermedad que presenta una amplia variabilidad tanto a nivel clínico como molecular. En un inicio se clasificaba en base al **grado tumoral**, el **tamaño** o el **estado ganglionar**, pero estos criterios son insuficientes para poder explicar las diferencias en el pronóstico y la respuesta al tratamiento que se observan entre pacientes incluso con características clínicas similares. (@perouMolecularPortraitsHuman2000)\  
+
+El desarrollo de las tecnologías de análisis de expresión génica a gran escala (microarrays o secuenciación de ARN) ha permitido una caracterización más precisa a nivel molecular del cáncer de mama. Los primeros estudios demostraron que se pueden agrupar los tumores mamarios en **subtipos moleculares** *distintos* y cada uno de ellos, con características biológicas y clínicas específicas. Entre los subtipos encontramos: *Luminal A*, *Luminal B*, *HER2-positivo*, *Claudin-low* y *Basal-like*, los cuales difieren en la expresión de genes relacionados con receptores hormonales, proliferación celular y vías oncogénicas clave. (@sorlieRepeatedObservationBreast2003)\  
+
+El conjunto de datos **Breast Cancer Gene Expression Profiles** nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
+
 
 ## Separación de datos
 Primero hemos identificado los *datos clínicos* de los *datos genéticos*
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv")
+data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv") #cargamos la base de datos
 
 col_datosclinicos <- colnames(data) %>% 
-  head(n = 31)
+  head(n = 31) #muestro base de datos parcialmente
 
 datos_clinicos <- data %>% 
   select(col_datosclinicos) #selecciono datos clinicos de toda la base de datos (data)
 
-# converir valores vacíos a NA
+# convierto valores vacíos a NA
 datos_clinicos[datos_clinicos == ""] <- NA
 ```
 
 ```{r}
-dim(datos_clinicos)
-str(datos_clinicos)
+dim(datos_clinicos) #veo las dimensiones de la tabla
+str(datos_clinicos) 
 ```
 
 Los datos tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.
@@ -63,18 +72,14 @@ Usado por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicSt
 
 # Gráfico de tumor_stage
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-# 1. Limpieza y preparación de datos (CORREGIDO)
+# 1. Limpieza y preparación de datos
 datos_grafico_tumor <- datos_clinicos %>%
-  
   # Paso A: Convertir a caracter para manejar la cadena vacía
   mutate(tumor_stage = as.character(tumor_stage)) %>%
-  
-  # Paso B: Convertir cadenas vacías ("") a NA (ahora funciona)
+  # Paso B: Convertir espacios vacíos ("") a NA
   mutate(tumor_stage = na_if(tumor_stage, "")) %>%
-  
   # Paso C: Filtrar todos los NA (los originales y los recién creados)
   filter(!is.na(tumor_stage)) %>%
-  
   # Paso D: Convertir la columna a factor para la gráfica
   mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que sea ordenado
 
@@ -95,12 +100,32 @@ boxplot_supervivenciafinal <- datos_grafico_tumor %>%
   ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) +
-  scale_fill_viridis_d(option= "D")
+  scale_fill_viridis_d(option= "D") #colourblind friendly
 
 print(boxplot_supervivenciafinal)
 ```
 
 ¿Son datos significativos? 
+### Test de normalidad
+Primero realizamos una prueba de normalidad mediante `shapiro.test`.
+
+H~0~: La distribución de la supervivencia global sigue una distribución normal
+H~1~: La distribución de la supervivencia global no sigue una distribución normal
+
+Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, la distribución de mis datos no siguen una distribución normal.
+
+### Test de Kruskal wallis
+
+Para ver si existen diferencias significativas en la supervivencia global entre las etapas del tumor, realizamos un test de Kruskal Wallis, ya que mis datos siguen una distribución no paramétrica.
+
+H~0~: No existen diferencias significativas entre las etapas del tumor
+H~1~: Existen diferencias significativas entre las etapas del tumor
+
+Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor
+
+### Test post-hoc Dunn's
+Para ver entre qué grupos existe diferencia significativa
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # Existen diferencias significativas?
 
@@ -133,7 +158,7 @@ La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente
 Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
-2. Relación entre her2+ y supervivencia
+# Pronóstico cáncer Her2+
 ```{r}
 # quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
@@ -179,6 +204,22 @@ km_her2_plot <- ggsurvplot(fit_km_her2,
 
 print(km_her2_plot)
 ```
+
+```{r}
+#Calculamos el Modelo de Cox
+# La fórmula es: objeto_supervivencia ~ predictor
+cox_her2_model <- coxph(surv_object_her2 ~ her2_status, 
+                        data = datos_her2)
+
+# 2. Imprimir el resumen del modelo para obtener el Hazard Ratio (HR)
+print("--- Resumen del Modelo de Cox para Estado HER2 ---")
+summary(cox_her2_model)
+```
+
+Interpretación: existen diferencias significativas en la supervivencia global entre subtipos Her2+ y Her2-.
+El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cualquier momento en comparación con otros subtipos de cáncer de mama.
+
+# Pronóstico cáncer Triple negativo
 
 Ahora vamos a ver el pronóstico del cáncer Triple negativo, se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -232,8 +273,7 @@ summary(cox_tnbc_model)
 
 ```
 
-
-Interpretación: es significativo, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
+Existen diferencias significativas, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
 
 ```{r}
 # vamos a hacerlo otra vez omitiendo NC
@@ -268,4 +308,39 @@ filter(!is.na(`pam50_._claudin.low_subtype`) &
     scale_fill_viridis_d()
 
 ```
+
+# Ahora quiero ver si está relacionado estar en pre-post menopausia con el cáncer de mama
+
+Quiero ver cuantas pacientes son pre-post menopáusicas
+## Limpieza y preparación
+# Creo un data frame limpio solo con la variable de interés, eliminando valores vacíos o NAs.
+```{r}
+datos_grafico_menopausia <- datos_clinicos %>%
+  filter(!is.na(inferred_menopausal_state) & inferred_menopausal_state != "") %>%
+  mutate(inferred_menopausal_state = factor(inferred_menopausal_state))
+
+```
+
+
+# 2. Genero el gráfico de barras
+```{r}
+grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
+                                    aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
+  geom_bar() +
+  
+  # Añadir las etiquetas de conteo encima de cada barra
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5, size = 5) +
+  
+  labs(title = "Distribución de Pacientes por Estado Menopáusico",
+       x = "Estado Menopáusico",
+       y = "Número de Pacientes") +
+  
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  scale_fill_viridis_d(option= "D")
+
+print(grafico_barras_menopausia)
+```
+
+
 
