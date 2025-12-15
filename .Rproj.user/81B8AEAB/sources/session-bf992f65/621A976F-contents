@@ -2,7 +2,7 @@
 title: |
   ![](logoUCO.png){width=10%}
   Breast Cancer Gene Expression Profiles
-  ![](logofac.png){width=15%}
+  ![](logofac.png){width=13%}
   (METABRIC)
   
 author: "Andrea Murillo Espinar, Andrea Torres Philpott"
@@ -41,13 +41,13 @@ El cáncer de mama es una enfermedad que presenta una amplia variabilidad tanto 
 
 El desarrollo de las tecnologías de análisis de expresión génica a gran escala (microarrays o secuenciación de ARN) ha permitido una caracterización más precisa a nivel molecular del cáncer de mama. Los primeros estudios demostraron que se pueden agrupar los tumores mamarios en **subtipos moleculares** *distintos* y cada uno de ellos, con características biológicas y clínicas específicas. Entre los subtipos encontramos: *Luminal A*, *Luminal B*, *HER2-positivo*, *Claudin-low* y *Basal-like*, los cuales difieren en la expresión de genes relacionados con receptores hormonales, proliferación celular y vías oncogénicas clave. (@sorlieRepeatedObservationBreast2003)\  
 
-El conjunto de datos **Breast Cancer Gene Expression Profiles** nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
+El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purple;"} nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
 
 
-## Separación de datos
-Primero hemos identificado los *datos clínicos* de los *datos genéticos*
+# Tratamiento de datos
+Con la información proporcionada por la base de datos, dividimos los datos en *datos clínicos* y *datos genéticos*
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv") #cargamos la base de datos
 
 col_datosclinicos <- colnames(data) %>% 
@@ -60,19 +60,28 @@ datos_clinicos <- data %>%
 datos_clinicos[datos_clinicos == ""] <- NA
 ```
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 dim(datos_clinicos) #veo las dimensiones de la tabla
 str(datos_clinicos) 
 ```
 
-Los datos tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.
-Cada fila se corresponde con un paciente, por tanto, hay `r nrow(datos_clinicos)` pacientes.
+```{r datosgeneticos, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+#hago lo mismo pero para los datos genéticos
+datos_geneticos <- data %>% 
+  select(32:693) #sabemos que el resto son genéticos
+```
+
+
+Los *datos clínicos* tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.
+Cada fila se corresponde con un paciente, por tanto, hay `r nrow(datos_clinicos)` pacientes.\   
+
+Los *datos genéticos* tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.
 
 # Artículos donde sale el dataset (METABRIC)
 Usado por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicStratification2018
 
 # Gráfico de tumor_stage
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # 1. Limpieza y preparación de datos
 datos_grafico_tumor <- datos_clinicos %>%
   # Paso A: Convertir a caracter para manejar la cadena vacía
@@ -110,7 +119,8 @@ print(boxplot_supervivenciafinal)
 ### Test de normalidad
 Primero realizamos una prueba de normalidad mediante `shapiro.test`.
 
-H~0~: La distribución de la supervivencia global sigue una distribución normal
+H~0~: La distribución de la supervivencia global sigue una distribución normal \    
+
 H~1~: La distribución de la supervivencia global no sigue una distribución normal
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, la distribución de mis datos no siguen una distribución normal.
@@ -119,7 +129,7 @@ Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis 
 
 Para ver si existen diferencias significativas en la supervivencia global entre las etapas del tumor, realizamos un test de Kruskal Wallis, ya que mis datos siguen una distribución no paramétrica.
 
-H~0~: No existen diferencias significativas entre las etapas del tumor
+H~0~: No existen diferencias significativas entre las etapas del tumor\   
 H~1~: Existen diferencias significativas entre las etapas del tumor
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor
@@ -160,7 +170,7 @@ Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
 # Pronóstico cáncer Her2+
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
 str(datos_clinicos$her2_status)
@@ -200,7 +210,7 @@ km_her2_plot <- ggsurvplot(fit_km_her2,
                            risk.table = TRUE,       # Muestra la tabla de riesgo
                            legend.title = "Estado HER2",
                            title = "Curvas de Supervivencia Global por Estado HER2",
-                           palette = c("#E7B800", "#2E9FDF") # Colores para HER2- y HER2+
+                           palette = c("purple4", "#2E9FDF") # Colores para HER2- y HER2+
 )
 
 print(km_her2_plot)
@@ -223,7 +233,7 @@ El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cu
 # Pronóstico cáncer Triple negativo
 
 Ahora vamos a ver el pronóstico del cáncer Triple negativo, se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 unique(datos_clinicos$er_status)
 unique(datos_clinicos$pr_status)
 unique(datos_clinicos$her2_status)
@@ -342,6 +352,14 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
   scale_fill_viridis_d(option= "D")
 
 print(grafico_barras_menopausia)
+```
+
+# Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
+
+## Información de la sesión y referencias
+```{r sesion-info, echo=FALSE}
+session <- sessionInfo()
+print(session)
 ```
 
 # Bibliografía 

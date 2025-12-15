@@ -3,7 +3,7 @@
     "path": "C:/R/Breast_cancer/geneticos.R",
     "project_path": "geneticos.R",
     "type": "r_source",
-    "hash": "1001589726",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1765159937021.0,
@@ -13,8 +13,8 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "82,0",
-        "scrollLine": "67"
+        "cursorPosition": "19,0",
+        "scrollLine": "15"
     },
     "folds": "",
     "lastKnownWriteTime": 1765816773,
