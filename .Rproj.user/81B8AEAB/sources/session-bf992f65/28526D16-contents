@@ -1,0 +1,414 @@
+---
+title: "Monitoreo y análisis de la biodiversidad mediante herramientas ecoinformáticas"
+author: "Andrea Torres Philpott"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cargamos las librerías
+```{r dependencias, message=FALSE, warning=FALSE}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(vegan)
+library(car)
+library(multcompView)
+library(dunn.test)
+```
+
+## Cargamos nuestros datos
+
+```{r carga-de-datos}
+variables <- read_excel("aves_dataframe.xlsx")
+aves <- read_excel("aves_dataframe.xlsx", sheet= 3)
+```
+
+## Preparo mis datos
+
+Selecciono las columnas de aves, de mi base de datos completa con zona y grupo.
+
+
+```{r preparo-datos}
+aves %>% tibble()
+
+solo_aves <- aves %>% 
+  select(`C. caeruleus`:M.milvus) #Selecciono las columnas 
+
+```
+
+# Calculo riqueza
+
+Sumamos cada fila para obtener la riqueza de aves por estación
+
+
+```{r calculo-riqueza}
+riqueza_aves <- rowSums(solo_aves) #Sumamos filas
+
+print(riqueza_aves) #Muestro el resultado
+
+variables$riqueza_aves <- riqueza_aves #Lo meto al dataframe
+```
+
+```{r riqueza-total}
+total_riqueza_aves <- sum(riqueza_aves) #448 en total
+print(total_riqueza_aves)
+
+sum(is.na(total_riqueza_aves)) #no tiene NA
+```
+
+
+## Gráfico promedio de riqueza por zonas
+
+Lo comparo por zonas
+```{r creo-objeto-grafico-riqueza}
+
+grafico_riquezaaves_zona <- variables %>% 
+  select(zona, riqueza_aves) %>% 
+  group_by(zona) %>% 
+  summarise(
+    riqueza_aves_prom= mean(riqueza_aves, na.rm= TRUE)
+  )
+```
+
+```{r muestro-grafico}
+grafico_riquezaaves_zona %>% 
+  ggplot(aes(x= zona, y= riqueza_aves_prom, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  labs(x= "zona", y= "Riqueza de aves", title= "Promedio de la riqueza de aves por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+```
+
+## ¿Datos significativos?
+
+### Test de levene
+
+```{r levene-riqueza}
+leveneTest(riqueza_aves~zona, data=variables) #realizamos un test de levene para ver la homogeneidad de varianzas
+```
+
+
+H0: Las varianzas de las riquezas de aves por zona son iguales
+H1: Las varianzas de las riquezas de aves por zona no son iguales
+Como p>0,05 rechazas la hipótesis alternativa: las varianzas son iguales. Ahora vamos a ver cuales son distintas.
+
+### Test de ANOVA
+```{r anova-riqueza}
+modelo_riqueza_aves <- aov(riqueza_aves ~zona, data= variables)
+summary(modelo_riqueza_aves)
+```
+
+
+H0: La media de la riqueza de aves no es igual en las tres zonas
+H1: La media de la riqueza de aves es igual en las tres zonas
+Como p= 0.017, existe diferencia, rechazamos hipótesis alternativa, la media de la riqueza de aves no es igual en las tres zonas
+
+### Prueba posthoc Tukey
+```{r tukey-riqueza}
+tukey_resultado_riquezaaves <- TukeyHSD(modelo_riqueza_aves)
+print(tukey_resultado_riquezaaves)
+```
+
+
+El valor menor de 0,05 está en dehesa-abierto, esto significa que los pares son significativamente diferentes
+
+### Asignacion de letras A, B, AB.
+```{r letras-riqueza}
+p_valores_riqueza <- tukey_resultado_riquezaaves$zona[,4] #extraigo la cuarta columna que es el p valor
+
+letras_subconjunton_riqueza <- multcompLetters(p_valores_riqueza) #genero las letras de subconjunto
+print(letras_subconjunton_riqueza)
+```
+
+
+Dehesa: a, olivar: ab, abierto: b, esto quiere decir que dehesa es significativamente distinto de olivar, pero abierto no es significativamente diferente de dehesa ni olivar
+
+# Frecuencia relativa, índice de Shannon
+Frecuencia relativa es la riqueza de aves entre el total, 448
+```{r frec-relativa}
+total <- 448
+
+frec_relativa <- (riqueza_aves/total)
+
+print(frec_relativa)
+
+variables$frec_relativa <- frec_relativa  #Lo añado al dataframe global
+```
+
+
+## Gráfico frecuencia relativa por zonas
+
+Lo comparo por zonas
+```{r creo-objeto-frec-relativa}
+grafico_frec_relativa_zonas <- variables %>% 
+  select(zona, frec_relativa) %>% 
+  group_by(zona) %>% 
+  summarise(
+    frec_relativa_prom= mean(frec_relativa, na.rm= TRUE)
+  )
+
+```
+
+```{r muestro-grafico-frec-relativa}
+grafico_frec_relativa_zonas %>% 
+  ggplot(aes(x= zona, y= frec_relativa_prom, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  ylim(0,0.04) + #va de 0 a 1 el índice
+  labs(x= "zona", y= "Frecuencia relativa", title= "Promedio de la frecuencia relativa por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+```
+ 
+## ¿Datos son significativos?
+
+Vamos a ver si existen diferencias significativas entre la frecuencia relativa entre las 3 zonas.
+
+### Prueba de levene
+```{r levene-frec-relativa}
+leveneTest(frec_relativa~zona, data= variables)
+```
+
+Como p es mayor a 0.05 las varianzas son homogéneas
+
+### Prueba de ANOVA
+```{r anova-frec-relativa}
+modelo_frec_relativa <- aov(frec_relativa~zona, data=variables) #creo mdodelo
+summary(modelo_frec_relativa) #muestro modelo
+```
+
+Como p=0.017 existe una diferencia de la media entre las zonas
+
+### POST-hoc tukey
+```{r tukey-frec-relativa}
+tukey_resultado_frecrelativa <- TukeyHSD(modelo_frec_relativa)
+print(tukey_resultado_frecrelativa)
+```
+
+
+### Asignacion de letras
+```{r letras-frec-relativa}
+p_valores_frecuencia <- tukey_resultado_frecrelativa$zona[,4] #extraemos pvalores
+letras_frecuencia <- multcompLetters(p_valores_frecuencia)
+print(letras_frecuencia)
+```
+
+Dehesa: a, olivar:ab, abierto:b
+
+# Índice de Shannon
+Ahora vamos a calcular el índice de Shannon (basado en frecuencias relativas)
+Shannon: colSums, Riqueza: RowSums
+
+```{r shannon}
+H_prima_por_muestra <- diversity(solo_aves, index= "shannon")
+print(H_prima_por_muestra)
+
+#Añadimos la columna a la dataframe variables
+variables$indice_shannon <- H_prima_por_muestra
+
+#Ahora calculamos el índice de Shannon total, y aplicamos diversity
+conteo_total_especies <- colSums(solo_aves)
+
+H_prima_total <- diversity(conteo_total_especies, index= "shannon")
+print(H_prima_total)
+```
+
+```{r objeto-shannon}
+grafico_shannon_zonas <- variables %>% 
+  select(indice_shannon, zona) %>% 
+  group_by(zona) %>% 
+  summarise(
+    shannon_promedio = (mean(indice_shannon, na.rm= TRUE))) %>% 
+  arrange(desc(shannon_promedio))
+
+
+print(grafico_shannon_zonas)
+```
+
+```{r grafico-shannon}
+grafico_shannon_zonas %>% 
+  ggplot(aes(x= zona, y= shannon_promedio, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  ylim(0,3) + #modifico el eje de la y para que se vean menos alargadas las barras
+  labs(x= "zona", y= "H'", title= "Índice de Shannon promedio por zona") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+
+```
+
+
+## ¿Los datos son significativos?
+### Test de levene
+```{r levene-shannon}
+
+leveneTest(indice_shannon~zona, data=variables)
+```
+
+Las varianzas son homogeneas, p valor mayor a 0.05
+
+### ANOVA
+```{r anova-shannon}
+modelo_shannon <- aov(indice_shannon~zona, data= variables)
+summary(modelo_shannon)
+```
+
+Como p menor de 0.05, diferencia entre medias de indice de shannon
+
+### Tukey
+```{r tukey-shannon}
+tukey_resultado_shannon <- TukeyHSD(modelo_shannon)
+print(tukey_resultado_shannon)
+```
+
+
+### Asignamos letras
+```{r letras-shannon}
+
+p_valores_shannon <- tukey_resultado_shannon$zona[,4]
+letras_shannon <- multcompLetters(p_valores_shannon)
+print(letras_shannon)
+```
+
+Dehesa:a, olivar:ab, abierto:b
+
+# Índice de Simpson (dominancia)
+Ahora calculamos el índice de Simpson para medir la diversidad (Lamba): Índice de dominancia
+```{r calculo-simpson}
+lambda_por_muestra <- diversity(solo_aves, index= "simpson")
+print(lambda_por_muestra)
+
+#Añadimos al dataframe variables
+variables$indice_simpson <- lambda_por_muestra
+```
+
+```{r objeto-simpson}
+
+#Lo comparo por zonas
+grafico_simpson_zonas <- variables %>% 
+  select(zona, indice_simpson) %>% 
+  group_by(zona) %>% 
+  summarise(
+    simpson_prom= mean(indice_simpson, na.rm= TRUE)
+  )
+
+```
+
+```{r grafico-simpson}
+grafico_simpson_zonas %>% 
+  ggplot(aes(x= zona, y= simpson_prom, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  ylim(0,1) +
+  labs(x= "zona", y= "Lambda", title= "Índice de Simpson promedio por zona") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+```
+
+## ¿Datos son significativos?
+Vamos a ver si es significativo, como es no normal hacemos kruskal wallis. No hay que hacer test de levene
+
+### Test de Kruskal wallis
+```{r kruskal-simpson}
+kruskal_simpson <- kruskal.test(indice_simpson~zona, data= variables)
+print(kruskal_simpson)
+```
+
+Como p es menor a 0,05 existe una diferencia significativa en la mediana del indice de simpson entre las zonas
+
+### Post-hoc con Dunn's
+```{r dunn-simpson}
+dunn_simpson <- dunn.test(x=variables$indice_simpson,
+                          g=variables$zona, #factor de agrupacion
+                          method = "bonferroni")
+print(dunn_simpson)
+```
+
+
+abierto-dehesa significativamente diferente, lo demas no
+
+# Índice de Simpson (reciprocidad)
+
+Y ahora hacemos el índice de reciprocidad, que es 1-lambda. Es más facil de interpretar ya que un valor alto significa mayor diversidad
+```{r calculo-reciproc}
+reciprocidad_por_muestra <- 1 - lambda_por_muestra
+
+#La añadimos al dataframe
+variables$indice_simpson_reciprocidad <- reciprocidad_por_muestra
+```
+
+
+```{r objeto-reciproc}
+
+#Lo comparo por zonas
+grafico_reciprocidad_zonas <- variables %>% 
+  select(zona, indice_simpson_reciprocidad) %>% 
+  group_by(zona) %>% 
+  summarise(
+    reciprocidad_prom= mean(indice_simpson_reciprocidad, na.rm= TRUE)
+  )
+```
+
+```{r grafico-reciproc}
+grafico_reciprocidad_zonas %>% 
+  ggplot(aes(x= zona, y= reciprocidad_prom, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  ylim(0,1) + #va de 0 a 1 el índice
+  labs(x= "zona", y= "1-lambda", title= "Índice de Simpson de reciprocidad promedio por zona") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+
+```
+
+## ¿Mis datos son significativos?
+
+como indice de reciproc es no normal, usamos kruskal
+
+### Test de Kruskal Wallis
+```{r kruskal-reciproc}
+kruskal_reciproc <- kruskal.test(indice_simpson_reciprocidad~zona, data= variables)
+print(kruskal_reciproc)
+
+```
+
+Como p es menor a 0.05, hay diferencias significativas
+
+### Dunns post hoc
+```{r dunn-reciproc}
+
+dunn_reciproc <- dunn.test(x= variables$indice_simpson_reciprocidad, g=variables$zona, method = "bonferroni")
+print(dunn_reciproc)
+
+```
+
+abierto-dehesa significativamente distinto
+
+#Vamos a ver si nuestras variables son normales
+#Riqueza de aves
+shapiro.test(riqueza_aves)
+#p valor 0.13, son valores normales
+
+#Frecuencia relativa
+shapiro.test(frec_relativa)
+#Indice shannon
+shapiro.test(riqueza_aves)
+#Indice simpson
+shapiro.test(riqueza_aves)
+#Indice reprocidad
+shapiro.test(riqueza_aves)
+
+#Puedo testear todas las variables a la vez
+# 1. Definir los nombres de las columnas a probar
+variables_normalidad <- c("indice_shannon", "riqueza_aves", "frec_relativa", "indice_simpson_reciprocidad", "indice_simpson")
+
+# 2. Aplicar la prueba de Shapiro-Wilk a cada columna
+resultados_shapiro <- lapply(variables[variables_normalidad], shapiro.test)
+
+# 3. Extraer y mostrar solo los p-valores
+print("Resultados de la prueba de Shapiro-Wilk (p-valor):")
+lapply(resultados_shapiro, function(x) x$p.value)
+#Son normales indice de shannon. riqueza de aves y frecuencia relativa. No son normales indice de simpson e indice de reciprocidad.

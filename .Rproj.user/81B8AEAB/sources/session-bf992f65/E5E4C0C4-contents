@@ -1,0 +1,152 @@
+---
+#Para introducir logo en el encabezado,se puede quitar las comillas
+title: |
+  ![](logo_uco.png){width="10%"}
+  Sesion3_citas
+author: "AndreaTorresPhilpott_b02topha@uco.es"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+#Introducir bibliografia
+bibliography: ["NILS.bib", "libraries.bib"]
+#Crear links entre las citas de bibliografía y las citas en el texto para poder inspeccionarlas
+link-citations: true
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Cargar librerias
+
+```{r cargar-librerias, echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(readxl)
+
+```
+
+#control alt i: para crear código, control shift k: knit
+
+# Para cargar dataframe, que no salga el código (echoF) ni los mensajes de warning (warningF)
+
+```{r leer-archivo, echo=FALSE, warning=FALSE}
+
+dataframe <- read_excel("C:/R/compuu/12870_2024_5411_MOESM1_ESM.xlsx", skip = 1)
+
+```
+
+# Seleccionamos columnas de interes (poner titulo de tablas)
+
+```{r seleccion_datos, echo=FALSE, warning=FALSE, message=FALSE}
+seleccion <- dataframe %>% select(CHROM, POS, FILTER)
+```
+
+# Primera vista de datos
+
+```{r vista-datos, echo=FALSE}
+knitr::kable(head(seleccion,10), align = 'c', caption = "Tabla 1: Diez primeras filas")
+```
+
+# Incorporamos grafico de densidad para el cromosoma 1
+
+```{r grafica-densidadcromosomal, echo=FALSE, fig.cap="Figura 1: Densidad de variantes en *Cromosoma 1*"}
+CROM1 <- seleccion %>% 
+  filter(CHROM == "NC_021160.1")
+
+CROM1 %>% 
+  ggplot(aes(x= POS)) +
+  geom_density(fill= "darkred") +
+  labs(x = "Posición en el cromosoma",
+       y= "Densidad")
+```
+
+Estos datos fueron los empleados por @perez2024phenotypic, bibliografía con fecha entre paréntesis
+
+```{verbatim}
+@perez2024phenotypic
+```
+
+#Estos datos fueron los empleados por [@perez2024phenotypic] , bibliografía entre paréntesis
+
+```{verbatim}
+[@perez2024phenotypic]
+```
+
+Hay que citar los paquetes de R además de la bibliografía
+
+```{r}
+knitr::write_bib(c(.packages(), 'dplyr', 'ggplot2', 'knitr', 'readxl'), 'libraries.bib')
+```
+
+Hemos usado R [@R-readxl] para leer los datos. Hemos usado dplyr [@R-dplyr] y ggplot2 [@R-ggplot2] para trabajar con los datos
+
+# Para poner una imagen:
+
+```{verbatim}
+![](nombre_de_imagen){width="x%"}  
+```
+
+![](logo_uco.png){width="10%"}
+
+# Para poner link hay dos formas
+
+```{verbatim}
+<link url> Enseña link entero
+[This is a link](link url) Enseña el nombre que introduzcas entre corchetes
+```
+
+<https://www.uco.es/>
+
+[Link de la uco](https://www.uco.es/)
+
+# Prueba de formato de texto: negrita, cursiva, tachado
+
+**Esto** es una *prueba* para *entender* los formatos que tiene ~~Markdown~~\
+Nuevo párrafo\
+Y otro nuevo\
+Hay otra forma de saltar de pagina\
+Con dos espacios
+
+Respiro O~2~, 2^2^ [^1]
+
+[^1]: Esto es un pie de página, aquí estoy poniendo subíndices y superíndices
+
+# Para enseñar notas al pie
+
+```{verbatim}
+Texto[^1]
+[^1]: texto que quieres en el pie de página
+```
+
+# Vamos a construir tablas manualmente
+
+| Elemento de formato |    Ejemplo en Markdown     | Resultado esperado   |
+|:--------------------|:--------------------------:|:---------------------|
+| Negrita             |         **texto**          | texto en negrita     |
+| Cursiva             |          *texto*           | texto en cursiva     |
+| Salto de línea      | Línea con dos espacios[][] | Nueva página         |
+| Nota el pie         |        palabra[^2]         | Cita a pie de página |
+
+[^2]: Esto es un pie de página, aquí estoy poniendo subíndices y superíndices
+
+
+# Recuerda!!
+Dos bloques de código no se pueden llamar igual porque sino dan fallos, es {r session-info} {r grafica-densidad}, no puede haber otro llamado así
+
+# Información de la sesión y preferencias
+
+Para asegurar reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
+
+Para crear títulos dejar un espacio después de #  
+#Así no  
+# Así  
+
+```{r session-info, echo= FALSE}
+session <- sessionInfo()
+print(session)
+```
+

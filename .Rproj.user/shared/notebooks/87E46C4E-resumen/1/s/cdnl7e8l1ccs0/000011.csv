@@ -1,0 +1,5 @@
+"0","  # Convertir el estadio a factor
+  mutate(tumor_stage = factor(tumor_stage))
+"
+"2","Error: objeto 'tumor_stage' no encontrado
+"

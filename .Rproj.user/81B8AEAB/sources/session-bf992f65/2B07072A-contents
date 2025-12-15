@@ -1,0 +1,37 @@
+---
+title: |
+  ![](logo_uco.png){width="10%"} 
+  Ecoinformática
+author: "AndreaTorresPhilpott_b02topha@uco.es"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Monitoreo y análisis de la biodiversidad mediante herramientas ecoinformáticas
+
+# Objetivos
+1. Recolectar datos ambientales y de biodiversidad
+Zona agrícola (Línea amarilla)
+Zona forestal (Línea azul)
+
+2. Aplicar herramientas ecoinformáticas para el procesamiento y análisis de datos de campo
+
+3. Interpretar los resultados para comprender las relaciones ecológicas presentes en el ecosistema
+
+```{r cars}
+summary(cars)
+```
+
+## Parte 2
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

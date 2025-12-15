@@ -1,0 +1,1078 @@
+---
+title: "practicaAVESDEF"
+author: "Andrea Torres Philpott"
+date: "2025-12-03"
+output: 
+  html_document:
+    highlight: tango # colores 
+    css: estilos_personalizados.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Hola
+
+```{r dependencias, message=FALSE, warning=FALSE}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(vegan)
+library(car)
+library(multcompView)
+library(dunn.test)
+library(Hmisc)
+library(corrplot)
+library(lmerTest)
+library(lme4)
+library(MuMIn)
+library(rcompanion)
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(indicspecies)
+library(ggsignif)
+library(rcompanion)
+library(psych)
+library(tibble) 
+library(tidyr)
+library(ggpmisc)
+library(ggpubr)
+library(glmmTMB)
+```
+
+
+
+# Cargo las bases de datos
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+variables <- read_excel("C:/Users/usuario/OneDrive - Universidad de Córdoba/basecompleta.xlsx",
+                        sheet= "variables",
+                                col_types = c("numeric", "numeric", "numeric", 
+                                                       "numeric", "numeric"))
+
+
+
+aves <- read_excel("C:/Users/usuario/OneDrive - Universidad de Córdoba/basecompleta.xlsx", 
+                     ,    sheet = "aves", col_types = c("text", 
+                                                                  "text", "text", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                 "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                 "numeric", "numeric", "numeric", 
+                                                               "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                 "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                 "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric", 
+                                                                  "numeric", "numeric", "numeric"))
+tibble(aves)
+
+avesyzona <- aves %>% 
+  select(C.caeruleus:M.milvus, zona)
+
+soloaves <- aves %>% 
+  select(C.caeruleus:M.milvus)
+
+
+variablesestandarizadas <- read_excel("C:/Users/usuario/OneDrive - Universidad de Córdoba/variablesestandarizadas.xlsx")
+
+```
+
+
+
+# Cálculo riqueza de aves
+
+```{r calculo-riqueza, warning= FALSE, message= FALSE}
+# Voy a calcular la riqueza de especies con la matriz de conteos de ausencia/presencia
+solo_aves <- aves %>% 
+  select(C.caeruleus:M.milvus) #Selecciono las columnas 
+
+#Obtengo la riqueza de aves
+riqueza_aves <- rowSums(solo_aves) #Sumamos filas
+
+print(riqueza_aves) #Muestro el resultado
+
+```
+
+# Añado columnas al dataframe variables 
+```{r}
+variables$riqueza_aves <- riqueza_aves #Lo meto al dataframe, junto con grupo, zona y idmuestra
+variables$zona <- aves$zona
+variables$grupo <- aves$grupo
+variables$id_muestra <- aves$id_muestra
+```
+
+
+# ¿Sigue la variable una distribución normal?
+
+```{r, warning=FALSE, message=FALSE}
+# Realizo el test de Shapiro-Wilk
+shapiro.test(riqueza_aves)
+
+#p igual a 0,13 , mi variable riqueza de aves es normal
+```
+
+# Lo grafico por zonas
+
+```{r, message=FALSE, warning=FALSE}
+#selecciono riqueza y la agrupo por zona, después calculo el promedio
+grafico_riquezaaves_zona <- variables %>% 
+  select(zona, riqueza_aves) %>% 
+  group_by(zona) %>% 
+  summarise(
+    riqueza_aves_prom= mean(riqueza_aves, na.rm= TRUE),
+    sd_riqueza= sd(riqueza_aves, na.rm= TRUE)
+  )
+
+
+grafico_riquezaaves_zona %>% 
+  ggplot(aes(x= zona, y= riqueza_aves_prom, fill= zona)) +
+  geom_col(show.legend = FALSE,
+           width= 0.6) +
+  labs(x= "zona", y= "Riqueza de aves", title= "Promedio de la riqueza de aves por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D") #colourblind friendly
+
+```
+
+```{r test-levene, warning=FALSE, message=FALSE}
+leveneTest(riqueza_aves~zona, data=variables) #test de levene, homogeneidad de varianzas
+
+```
+
+```{r test-anova, warning=FALSE, message=FALSE}
+modelo_riqueza_aves <- aov(riqueza_aves ~zona, data= variables)
+summary(modelo_riqueza_aves) #test de anova
+```
+
+```{r tukey, warning=FALSE, message=FALSE}
+tukey_resultado_riquezaaves <- TukeyHSD(modelo_riqueza_aves)
+print(tukey_resultado_riquezaaves)
+```
+
+```{r subconjunto, warning=FALSE, message=FALSE}
+#Asignacion de letras a y b.
+p_valores_riqueza <- tukey_resultado_riquezaaves$zona[,4] #la cuarta columna es el p adj
+
+#Genero las letras de subconjunto
+letras_riquezaaves <- multcompLetters(p_valores_riqueza)
+print(letras_riquezaaves)
+```
+
+```{r}
+dfletras_riquezaaves <- read_excel("C:/Users/usuario/OneDrive - Universidad de Córdoba/basecompleta.xlsx", 
+                                        sheet = "Hoja1")
+View(dfletras_riquezaaves)
+```
+
+```{r}
+#creo un dataframe con dos colunmnas: zona y letra
+graficofinal_riquezaaves <- grafico_riquezaaves_zona %>%
+  mutate(
+    ymax_text = riqueza_aves_prom + sd_riqueza + 0.5
+   ) %>% 
+  dplyr::left_join(dfletras_riquezaaves, by = "zona") 
+#uno el df al gráfico por la columna en común: zona
+
+graficofinal_riquezaaves %>% 
+  ggplot(aes(x= zona, y= riqueza_aves_prom, fill= zona)) +
+  geom_col(show.legend = FALSE,
+           width= 0.6) +
+  geom_errorbar(
+    aes(ymin= riqueza_aves_prom - sd_riqueza,
+        ymax= riqueza_aves_prom + sd_riqueza),
+    width= 0.1,
+    color= "black"
+  ) +
+  geom_text(
+    aes(y= ymax_text, label = letra),
+    vjust = 0,
+    size= 4
+  ) +
+  labs(x= "zona", y= "Riqueza de aves", title= "Promedio de la riqueza de aves por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+```
+
+# FRECUENCIA RELATIVA
+```{r}
+total_especies <- sum(riqueza_aves) #sumo el total de conteos
+print(total_especies) 
+
+frec_relativa <- riqueza_aves/total_especies #calculo frecuencia relativa
+print(frec_relativa)
+sum(frec_relativa) #por definición, sumatorio de frecuencia relativa= 1, compruebo que los datos son correctos
+
+variables$frec_relativa <- frec_relativa
+```
+
+```{r, message=FALSE, warning=FALSE}
+shapiro.test(frec_relativa)
+#p igual a 0.13, la frecuencia relativa sigue una distribución normal
+```
+
+```{r levene-frec, message=FALSE, warning=FALSE}
+leveneTest(frec_relativa ~ zona, data = variables)
+# p valor= 0.24> 0,05 , hay homogeneidad de varianzas
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+modelo_frec_relativa <- aov(frec_relativa ~ zona, data = variables) #test de ANOVA
+summary(modelo_frec_relativa)
+```
+
+```{r}
+tukey_resultado_frecrelativa <- TukeyHSD(modelo_frec_relativa) #para saber entre qué grupos existe la diferencia
+print(tukey_resultado_frecrelativa)
+```
+
+```{r, message=FALSE, warning=FALSE}
+grafico_frec_relativa_zonas <- variables %>% 
+  select(zona, frec_relativa) %>% 
+  group_by(zona) %>% 
+  summarise(
+    frec_relativa_prom = mean(frec_relativa, na.rm = TRUE),
+    sd_frec = sd(frec_relativa, na.rm= TRUE) #desviacion estandar
+  )
+
+#calculo posición y uno las letras
+graficofinal_frec <- grafico_frec_relativa_zonas %>%
+  mutate(
+  ymax_text = frec_relativa_prom + sd_frec + 0.002 # añade un margen de 0.002
+ ) %>%
+  left_join(dfletras_riquezaaves, by = "zona") # no necesito crear otro objeto porque son las mismas letras del df de antes
+
+graficofinal_frec %>% 
+  ggplot(aes(x = zona, y = frec_relativa_prom, fill = zona)) +
+  geom_col(show.legend = FALSE,
+           width= 0.6) +
+  geom_errorbar(# definimos los límites superior e inferior
+    aes(ymin = frec_relativa_prom - sd_frec,
+        ymax = frec_relativa_prom + sd_frec),
+    width = 0.1,    # Ancho de las tapas de la barra
+    color = "black")+
+  geom_text(aes(y= ymax_text, label = letra), vjust = 0,
+            size= 4, color= "black") +
+  labs(x = "Zona", 
+       y = "Frecuencia relativa",
+       title = "Promedio de la frecuencia relativa por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option = "D")
+```
+ 
+# CÁLCULO DEL INDICE DE SHANNON 
+```{r}
+H_prima_por_muestra <- diversity(solo_aves, index= "shannon")
+print(H_prima_por_muestra)
+
+#Añadimos la columna a la dataframe variables
+variables$indice_shannon <- H_prima_por_muestra
+
+```
+
+```{r}
+shapiro.test(H_prima_por_muestra) #test de normalidad a Shannon
+```
+
+```{r,warning=FALSE, message=FALSE}
+#test de levene
+leveneTest(indice_shannon ~ zona, data= variables)
+```
+
+```{r, warning=FALSE, message=FALSE}
+#test de ANOVA
+modelo_shannon <- aov(indice_shannon ~ zona, data= variables)
+summary(modelo_shannon)
+```
+
+```{r}
+#post-hoc Tukey
+tukey_shannon <- TukeyHSD(modelo_shannon)
+print(tukey_shannon)
+```
+ 
+```{r, message=FALSE, warning=FALSE}
+#Asignamos letras
+p_valores_shannon <- tukey_shannon$zona[,4]
+letras_shannon <- multcompLetters(p_valores_shannon)
+print(letras_shannon)
+
+```
+
+```{r}
+# esto no lo meto en el word
+dfletras_shannon <- read_excel("C:/Users/usuario/OneDrive - Universidad de Córdoba/basecompleta.xlsx",  sheet = "Hoja2")
+```
+
+```{r}
+# creo un dataframe con dos columnas: zona y letra (dfletras_shannon)
+grafico_shannon <- variables %>% 
+  select(zona, indice_shannon) %>% 
+  group_by(zona) %>% 
+  summarise(
+    indice_shannon_prom = mean(indice_shannon, na.rm= TRUE),
+    sd_shannon= sd(indice_shannon, na.rm= TRUE)
+  )
+
+graficofinal_shannon <- grafico_shannon %>% 
+  mutate(
+    ymax_text= indice_shannon_prom + sd_shannon + 0.1
+  ) %>% 
+  left_join(dfletras_shannon, by= "zona")
+
+graficofinal_shannon %>% 
+  ggplot(aes(x= zona, y= indice_shannon_prom, fill= zona)) +
+  geom_col(show.legend= FALSE,
+           width= 0.6) +
+  geom_errorbar(
+    aes(ymin= indice_shannon_prom - sd_shannon,
+        ymax= indice_shannon_prom + sd_shannon),
+    width= 0.1,
+    color= "black"
+  ) +
+  geom_text(
+    aes(y= ymax_text, label= letra),
+    vjust= 0,
+    size= 4
+  ) +
+  labs(x= "zona", y= "Índice de Shannon", title= "Índice de Shannon promedio por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option= "D")
+```
+
+# índice de simpson
+
+```{r}
+lambda_por_muestra <- diversity(solo_aves, index= "simpson")
+print(lambda_por_muestra)
+
+#Añadimos al dataframe variables
+variables$indice_simpson <- lambda_por_muestra
+
+# test de normalidad
+shapiro.test(lambda_por_muestra)
+
+#p valor es 0.007 , esto indica que no sigue una distribución normal
+#a diferencia de riqueza de aves, frecuencia relativa y el índice de shannon
+```
+
+```{r}
+#Lo comparo por zonas
+grafico_simpson_zonas <- variables %>% 
+  select(zona, indice_simpson) %>% 
+  group_by(zona) %>% 
+  summarise(
+    simpson_prom= mean(indice_simpson, na.rm= TRUE),
+    sd_simpson= sd(indice_simpson, na.rm= TRUE)
+  )
+
+
+grafico_simpson_zonas %>% 
+  ggplot(aes(x= zona, y= simpson_prom, fill= zona)) +
+  geom_col(show.legend = FALSE) +
+  ylim(0,1) +
+  labs(x= "zona", y= "Lambda", title= "Índice de Simpson promedio por zona") +
+  theme_bw() +
+  scale_fill_viridis_d(option="D")
+```
+
+¿Existen diferencias entre zonas?
+```{r}
+# test de kruskal wallis porque no sigue una distribución normal
+kruskal_simpson <- kruskal.test(indice_simpson ~ zona, data= variables)
+
+print(kruskal_simpson)
+```
+
+Como p es menor a 0,05 existe una diferencia significativa en la mediana del indice de simpson entre las zonas
+
+### Post-hoc con Dunn's
+```{r dunn-simpson}
+# post-hoc Dunn's
+dunn_simpson <- dunn.test(x=variables$indice_simpson,
+                          g=variables$zona, #factor de agrupacion
+                          method = "bonferroni")
+print(dunn_simpson)
+```
+
+sabemos que las letras son: dehesa a, olivar b, abierto b.
+```{r}
+grafico_simpson_zonas <- variables %>% 
+  select(zona, indice_simpson) %>% 
+  group_by(zona) %>% 
+  summarise(
+    simpson_prom = mean(indice_simpson, na.rm = TRUE),
+    sd_simp = sd(indice_simpson, na.rm= TRUE) #desviacion estandar
+  )
+
+#calculo posición y uno las letras
+graficofinal_simpson <- grafico_simpson_zonas %>%
+  mutate(
+  ymax_text = simpson_prom + sd_simp + 0.01 # añade un margen de 0.002
+ ) %>%
+  left_join(dfletras_riquezaaves, by = "zona") # no necesito crear otro objeto porque son las mismas letras del df de antes
+
+graficofinal_simpson %>% 
+  ggplot(aes(x = zona, y = simpson_prom, fill = zona)) +
+  geom_col(show.legend = FALSE,
+           width= 0.6) +
+  geom_errorbar(# definimos los límites superior e inferior
+    aes(ymin = simpson_prom - sd_simp,
+        ymax = simpson_prom + sd_simp),
+    width = 0.1,    # Ancho de las tapas de la barra
+    color = "black")+
+  geom_text(aes(y= ymax_text, label = letra), vjust = 0,
+            size= 4, color= "black") +
+  labs(x = "Zona", 
+       y = "Índice de Simpson",
+       title = "Promedio del Índice de Simpson por zonas") +
+  theme_bw() +
+  scale_fill_viridis_d(option = "D")
+```
+
+# Análisis de la Relación entre Variables Ambientales y Biodiversidad 
+
+
+```{r}
+# Creamos un nuevo data frame 'variables_st' con las columnas estandarizadas
+# basamos la nueva tabla en el data frame 'variables' para mantener el orden.
+variables_st <- variables %>%
+  #seleccionamos las variables ambientales
+  select(luminosidad, coberturavegetal, riquezavegetal, temperatura, hora) %>% 
+  # Luego, usamos mutate para crear las columnas estandarizadas
+  mutate(
+    luminosidad_st = scale(variables$luminosidad),
+    coberturavegetal_st = scale(variables$coberturavegetal),
+    riquezavegetal_st = scale(variables$riquezavegetal),
+    temperatura_st = scale(variables$temperatura),
+    hora_st = scale(variables$hora)
+  ) %>% 
+  select(-luminosidad, -coberturavegetal, -riquezavegetal, -temperatura, -hora)
+
+# Mostramos la nueva tabla (solo las primeras filas)
+print(head(variables_st))
+
+
+# Seleccionamos las columnas de biodiversidad y factores de la tabla original
+variables_respuesta_y_factor <- variables %>%
+  select(zona, grupo, frec_relativa, riqueza_aves, indice_shannon, indice_simpson)
+
+# Usamos cbind() para unir las dos tablas por columna
+# Esto solo funciona si ambos data frames tienen EXACTAMENTE el mismo número de filas
+varst_y_predictoras <- cbind(variables_respuesta_y_factor, variables_st)
+
+# Muestra el data frame final 'variables_st'
+print(head(varst_y_predictoras))
+dim(varst_y_predictoras) #me aseguro de las dimensiones de la tabla, está bien
+```
+
+```{r}
+#test de normalidad para saber qué correlación usar:
+#variables ambientales
+shapiro.test(variables_st$temperatura_st)
+shapiro.test(variables_st$luminosidad_st)
+shapiro.test(variables_st$hora_st)
+shapiro.test(variables_st$coberturavegetal_st)
+shapiro.test(variables_st$riquezavegetal_st)
+#solo sigue una distribución normal la temperatura
+
+#variables predictoras
+shapiro.test(riqueza_aves)
+shapiro.test(frec_relativa)
+shapiro.test(variables$indice_shannon)
+shapiro.test(variables$indice_simpson)
+#solo sigue una distribución no normal simpson
+```
+
+Puedo hacer correlación de Pearson (normal) entre temperatura y riqueza de aves/frecuencia relativa/indice shannon, para el resto de variables debo hacer correlación de Spearman
+
+Voy a hacer directamente Spearman con todas las variables
+
+```{r, warning= FALSE, message=FALSE}
+#selecciono las variables de interés (índices y variables ambientales)
+datos_correlacion <- varst_y_predictoras %>% 
+  select(
+    #variables predictoras
+    riqueza_aves,
+    frec_relativa,
+    indice_simpson,
+    indice_shannon,
+    
+    #variables ambientales
+    temperatura_st,
+    luminosidad_st,
+    coberturavegetal_st,
+    riquezavegetal_st,
+    hora_st
+  )
+
+#calculo la matriz de correlación de spearman
+test_spearman <- corr.test(datos_correlacion,
+                           method= "spearman",
+                           adjust = "bonferroni")
+
+#muestro los resultados
+print(test_spearman$r) #coeficiente de correlación
+print(test_spearman$p) #p valores
+```
+
+Voy a filtrar los resultados para que solo aparezcan aquellos que tengan correlación (>0.7), y que su p valor sea significativo (p<0.05)
+
+```{r filtrar-correlacion, message=FALSE, warning=FALSE}
+
+# primero convierto las matrices a formato largo
+
+# matriz de COEFICIENTES (rho)
+rho_matriz <- test_spearman$r %>%
+  as_tibble(rownames = "Variable1") %>% # convierto nombres de filas a columna
+  pivot_longer(
+    cols = -Variable1,
+    names_to = "Variable2",
+    values_to = "rho"
+  )
+
+# matriz de P-VALORES
+p_matriz <- test_spearman$p %>%
+  as_tibble(rownames = "Variable1") %>%
+  pivot_longer(
+    cols = -Variable1,
+    names_to = "Variable2",
+    values_to = "p_value"
+  )
+
+# unión y filtrado
+
+# uno ambas tablas por las dos variables (Variable1 y Variable2)
+tabla_correlacion_completa <- left_join(rho_matriz, p_matriz, by = c("Variable1", "Variable2")) %>%
+  
+  # elimino duplicados (ej., Riqueza vs. Temperatura es lo mismo que Temperatura vs. Riqueza)
+  # y elimino la correlación consigo misma (rho=1)
+  filter(Variable1 < Variable2) %>%
+  
+  # filtro resultados estadísticamente significativos
+  filter(
+    # filtro por significación estadística (P < 0.05)
+    p_value < 0.05,
+    
+    # filtro por fuerza (valor absoluto de correlacion > 0.7)
+    # uso abs() para incluir correlaciones fuertes tanto positivas (+0.7) como negativas (-0.7)
+    abs(rho) > 0.7
+  ) %>%
+  
+  # ordeno los resultados por fuerza de correlación (rho)
+  arrange(desc(abs(rho)))
+
+# muestro la tabla de correlaciones significativas y fuertes
+print(tabla_correlacion_completa)
+```
+
+Voy a graficar riqueza de aves y riqueza vegetal. Es importante que use riqueza vegetal SIN estandarizar.
+
+
+```{r, warning=FALSE, message=FALSE}
+variables %>%
+  ggplot(aes(x = riquezavegetal, y = riqueza_aves)) +
+  
+  # puntos de dispersión
+  geom_point(color = "purple4", alpha = 0.7) +
+  
+  # línea de regresión lineal (lm)
+  geom_smooth(method = "lm", 
+              se = TRUE, 
+              color = "violet", 
+              fill = "violet", 
+              alpha = 0.2) +
+  
+  # añado la ECUACIÓN DE REGRESIÓN (y = a + bx) y el R²
+  # coloco la ecuación arriba a la izquierda
+  stat_regline_equation(
+    formula = y ~ x,
+    aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), # muestro ecuación y R²
+    label.x = min(variables$riquezavegetal), # ajusto la posición X a la izquierda
+    label.y = max(variables$riqueza_aves) * 0.95,
+    size = 4
+  ) +
+  
+  # 2. añado el coeficiente de correlación 'r' (Pearson) y su P-valor 
+  stat_cor(
+    formula = y ~ x,
+    method = "pearson", #  se usa Pearson por defecto en ggpubr
+    label.x = min(variables$riquezavegetal),
+    label.y = max(variables$riqueza_aves) * 0.88,
+  ) +
+  
+  labs(
+    title = "Relación lineal entre Riqueza de Aves y Riqueza Vegetal",
+    x = "Riqueza de Especies Vegetales (Nº de especies)",
+    y = "Riqueza de Especies de Aves (Nº de especies)"
+  ) +
+  theme_bw()
+```
+
+Hago lo mismo con riqueza de aves y cobertura vegetal, y diversidad de shannon con temperatura.
+
+```{r, warning=FALSE, message=FALSE}
+variables %>%
+  ggplot(aes(x = coberturavegetal, y = riqueza_aves)) +
+  
+  # puntos de dispersión
+  geom_point(color = "purple4", alpha = 0.7) +
+  
+  # línea de regresión lineal (lm)
+  geom_smooth(method = "lm", 
+              se = TRUE, 
+              color = "violet", 
+              fill = "violet", 
+              alpha = 0.2) +
+  
+  # añado la ECUACIÓN DE REGRESIÓN (y = a + bx) y el R²
+  # coloco la ecuación arriba a la izquierda
+  stat_regline_equation(
+    formula = y ~ x,
+    aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), # muestro ecuación y R²
+    label.x = min(variables$coberturavegetal), # ajusto la posición X a la izquierda
+    label.y = max(variables$riqueza_aves) * 0.95,
+    size = 4
+  ) +
+  
+  # 2. añado el coeficiente de correlación 'r' (Pearson) y su P-valor 
+  stat_cor(
+    formula = y ~ x,
+    method = "pearson", #  se usa Pearson por defecto en ggpubr
+    label.x = min(variables$coberturavegetal),
+    label.y = max(variables$riqueza_aves) * 0.88,
+  ) +
+  
+  labs(
+    title = "Relación lineal entre Riqueza de Aves y Cobertura vegetal",
+    x = "Riqueza de Especies Vegetales (Nº de especies)",
+    y = "Cobertura vegetal (%)"
+  ) +
+  theme_bw()
+```
+
+Diversidad de shannon y temperatura
+```{r}
+variables %>%
+  ggplot(aes(x = temperatura, y = indice_shannon)) +
+  
+  # puntos de dispersión
+  geom_point(color = "purple4", alpha = 0.7) +
+  
+  # línea de regresión lineal (lm)
+  geom_smooth(method = "lm", 
+              se = TRUE, 
+              color = "violet", 
+              fill = "violet", 
+              alpha = 0.2) +
+  
+  # añado la ECUACIÓN DE REGRESIÓN (y = a + bx) y el R²
+  # coloco la ecuación arriba a la izquierda
+  stat_regline_equation(
+    formula = y ~ x,
+    aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), # muestro ecuación y R²
+    label.x = min(variables$temperatura), # ajusto la posición X a la izquierda
+    label.y = max(variables$indice_shannon) * 0.95,
+    size = 4
+  ) +
+  
+  # 2. añado el coeficiente de correlación 'r' (Pearson) y su P-valor 
+  stat_cor(
+    formula = y ~ x,
+    method = "pearson", #  se usa Pearson por defecto en ggpubr
+    label.x = min(variables$temperatura),
+    label.y = max(variables$indice_shannon) * 0.88,
+  ) +
+  
+  labs(
+    title = "Relación lineal entre Índice de Shannon y Temperatura",
+    x = "Índice de Shannon (H')",
+    y = "Temperatura (ºC)"
+  ) +
+  theme_bw()
+```
+
+# MODELOS
+# necesito que estación esté en mi base de datos
+```{r}
+# 1. Creamos el nuevo data frame (o sobrescribimos el original, si lo deseas)
+#    Es buena práctica crear un nuevo nombre por si hay un error de alineación.
+basecompleta <- varst_y_predictoras
+
+# 2. Usamos cbind() para unir el data frame existente con la columna 'estacion'.
+#    La columna 'estacion' se añade al final.
+basecompleta <- cbind(varst_y_predictoras, 
+                                   estacion = variablesestandarizadas$estación)
+
+# Muestra las primeras filas para verificar que 'estacion' se haya añadido
+print(head(basecompleta))
+
+# Usamos mutate de dplyr para sobrescribir la columna 'estacion'
+# y forzar su conversión a factor.
+basecompleta <- basecompleta %>%
+  mutate(estacion = as.factor(estacion))
+
+# 1. Verificamos el tipo de dato de la columna 'estacion'
+print(class(basecompleta$estacion))
+```
+
+Voy a hacer modelos de 
+
+Riqueza de aves
+```{r}
+#para hacer los modelos tengo que usar las variables previamente estandarizadas
+#estoy usando zona como efecto fijo, y la estación como factor aleatorio, es un LMM
+mod_aves <- lmer(riqueza_aves ~ zona + 
+                       luminosidad_st +
+                       coberturavegetal_st +
+                       riquezavegetal_st +
+                       temperatura_st +
+                       (1 | estacion),
+                     data= basecompleta,
+                     REML= FALSE) #para usar dredge, el modelo debe estar ajustado con ML, no con REML
+
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_aves)
+
+#me dice que el mejor modelo es el 17, el modelo que solo incluye a zona
+modelo_aves_final <- lmer(riqueza_aves ~ zona + (1 | estacion), 
+                     data = basecompleta, REML = TRUE) #ahora si uso REML true
+
+summary(modelo_aves_final)
+
+#interpretación: abierto es significativamente diferente de 0, es el valor de referencia. en dehesa hay 0.10 unidades de promedio más en frecuencia relativa. la frecuencia relativa de las aves en la zona dehesa es significativamente mayor que en la zona de abierto.
+#en la zona de olivar no hay un valor significativo
+
+# interpretación final: en la zona dehesa muestra un nivel de riqueza, diversidad y frecuencia de aves significativamente superior a la zona abierto, mientras que la zona olivar no presenta una diferencia significativa
+
+```
+
+Tenemos que ver si los residuos del modelo siguen una distribución normal
+```{r, message=FALSE, warning=FALSE}
+#tengo que revisar la normalidad de los residuos
+residuos_riqueza <- resid(modelo_aves_final) #extraigo los residuos del modelo
+qqnorm(residuos_riqueza) #genero un grafico QQplot
+qqline(residuos_riqueza) #dibujo linea de referencia diagonal en el QQplot
+shapiro.test(residuos_riqueza) # el valor es normal
+
+# homogeneidad de varianzas: 
+# Añadir los residuales al dataframe para la prueba
+basecompleta$residuos_riqueza <- residuos_riqueza
+
+# Ejecutar la prueba de Levene sobre los residuales agrupados por zona
+leveneTest(residuos_riqueza ~ zona, data = basecompleta)
+
+# p mayor a 0.05: es lo deseado, existe homogeneidad de varianzas
+
+# gráfico de Residuales vs. Ajustados (Homogeneidad de Varianzas)
+valores_ajustados_aves <- fitted(modelo_aves_final)
+plot(valores_ajustados_aves, residuos_riqueza,
+     xlab = "Valores Ajustados",
+     ylab = "Residuales",
+     main = "Residuales vs. Valores Ajustados: Riqueza de aves")
+
+# añado una línea de referencia en Y = 0
+abline(h = 0, col = "purple4", lty = 2)
+
+# la tendencia es plana: homogeneidad de varianzas
+```
+
+
+Frecuencia relativa
+
+```{r}
+mod_frec <- lmer(frec_relativa ~ zona + 
+                          luminosidad_st +
+                          coberturavegetal_st +
+                          riquezavegetal_st +
+                          temperatura_st +
+                          (1 | estacion),
+                        data= basecompleta,
+                        REML= FALSE) #para usar dredge, el modelo debe estar ajustadon con ML, no con REML
+
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_frec)
+
+# la mejor opcion es 17, igual que antes 
+# Ajustar el nuevo modelo con la frecuencia relativa
+modelo_frec_final <- lmer(frec_relativa ~ zona + (1 | estacion), 
+                                data = basecompleta, REML = TRUE)
+
+# Mostrar el resumen para interpretación
+summary(modelo_frec_final)
+```
+
+Tengo que comprobar la normalidad de los residuos y la homogeneidad de varianza
+```{r}
+#tengo que revisar la normalidad de los residuos
+residuos_frec <- resid(modelo_frec_final) #extraigo los residuos del modelo
+qqnorm(residuos_frec) #genero un grafico QQplot
+qqline(residuos_frec) #dibujo linea de referencia diagonal en el QQplot
+shapiro.test(residuos_frec) # el valor es normal
+
+# homogeneidad de varianzas: 
+# Añadir los residuales al dataframe para la prueba
+basecompleta$residuos_frec <- residuos_frec
+
+# Ejecutar la prueba de Levene sobre los residuales agrupados por zona
+leveneTest(residuos_frec ~ zona, data = basecompleta)
+
+# p mayor a 0.05: es lo deseado, existe homogeneidad de varianzas
+
+# gráfico de Residuales vs. Ajustados (Homogeneidad de Varianzas)
+valores_ajustados_frec <- fitted(modelo_frec_final)
+plot(valores_ajustados_frec, residuos_frec,
+     xlab = "Valores Ajustados",
+     ylab = "Residuales",
+     main = "Residuales vs. Valores Ajustados: Frecuencia relativa")
+
+# añado una línea de referencia en Y = 0
+abline(h = 0, col = "purple4", lty = 2)
+
+# la tendencia es plana: homogeneidad de varianzas
+```
+
+
+Índice de Shannon
+
+```{r}
+#para hacer los modelos tengo que usar las variables previamente estandarizadas
+#estoy usando zona como efecto fijo, y la estación como factor aleatorio, es un LMM
+mod_shannon <- lmer(indice_shannon ~ zona + 
+                       luminosidad_st +
+                       coberturavegetal_st +
+                       riquezavegetal_st +
+                       temperatura_st +
+                       (1 | estacion),
+                     data= basecompleta,
+                     REML= FALSE) #para usar dredge, el modelo debe estar ajustado con ML, no con REML
+
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_shannon)
+
+#me dice que el mejor modelo es el 17, el modelo que solo incluye a zona
+modelo_shannon_final <- lmer(indice_shannon ~ zona + (1 | estacion), 
+                     data = basecompleta, REML = TRUE) #ahora si uso REML true
+
+summary(modelo_shannon_final)
+```
+
+Tengo que ver la normalidad de mis datos
+
+```{r}
+#tengo que revisar la normalidad de los residuos
+residuos_shannon <- resid(modelo_shannon_final) #extraigo los residuos del modelo
+qqnorm(residuos_shannon) #genero un grafico QQplot
+qqline(residuos_shannon) #dibujo linea de referencia diagonal en el QQplot
+shapiro.test(residuos_shannon) # el valor es CASI normal, está al límite
+
+# homogeneidad de varianzas: 
+# Añadir los residuales al dataframe para la prueba
+basecompleta$residuos_shannon <- residuos_shannon
+
+# Ejecutar la prueba de Levene sobre los residuales agrupados por zona
+leveneTest(residuos_shannon ~ zona, data = basecompleta)
+
+# p mayor a 0.05: es lo deseado, existe homogeneidad de varianzas
+
+# gráfico de Residuales vs. Ajustados (Homogeneidad de Varianzas)
+valores_ajustados_sha <- fitted(modelo_shannon_final)
+plot(valores_ajustados_sha, residuos_shannon,
+     xlab = "Valores Ajustados",
+     ylab = "Residuales",
+     main = "Residuales vs. Valores Ajustados: Índice de Shannon")
+
+# añado una línea de referencia en Y = 0
+abline(h = 0, col = "purple4", lty = 2)
+
+# la tendencia es plana: homogeneidad de varianzas
+```
+
+```{r}
+# ahora pongo como grupo aleatorio el grupo: somos 4
+mod_shannon2 <- lmer(indice_shannon ~ zona + 
+                   luminosidad_st +
+                   coberturavegetal_st +
+                   riquezavegetal_st +
+                   temperatura_st +
+                   (1 | grupo),
+                 data= basecompleta,
+                 REML= FALSE) #para usar dredge, el modelo debe estar ajustadon con ML, no con REML
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_shannon2)
+
+# el mejor modelo sigue siendo aquel que solo contempla la zona
+```
+
+```{r}
+# ahora pongo como grupo aleatorio el grupo: somos 4
+mod_simpson <- lmer(indice_simpson ~ zona + 
+                   luminosidad_st +
+                   coberturavegetal_st +
+                   riquezavegetal_st +
+                   temperatura_st +
+                   (1 | grupo),
+                 data= basecompleta,
+                 REML= FALSE) #para usar dredge, el modelo debe estar ajustadon con ML, no con REML
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_frec)
+
+# el mejor modelo sigue siendo aquel que solo contempla la zona
+```
+
+
+Hago un glmm de riqueza de especies
+
+```{r}
+# en glmm no se pone REML= FALSE
+#riqueza_aves ~ factor de clasificacion (zona) + covariables + factor aleatorio
+mod_riqueza_glmm <- glmer(
+  riqueza_aves ~ zona + temperatura_st + riquezavegetal_st + luminosidad_st + coberturavegetal_st + (1 | estacion),
+  data= basecompleta,
+  family = poisson
+)
+summary(mod_riqueza_glmm)
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_riqueza_glmm)
+#el resultado es el mismo del LMM
+```
+
+```{r}
+# mejor opción para simpson
+# Necesario para dredge
+options(na.action = "na.fail")
+
+modelo_simpson <- glmmTMB(
+  indice_simpson ~ zona + luminosidad_st + coberturavegetal_st + riquezavegetal_st + temperatura_st + (1 | estacion),
+  family = beta_family(),
+  data = basecompleta
+)
+
+# Selección de modelos
+dredge(modelo_simpson)
+
+#sale siempre zona como unico factor
+modelo_simpson_final_glmm <- glmmTMB(
+  indice_simpson ~ zona + (1 | estacion),
+  family = beta_family(),
+  data = basecompleta
+)
+summary(modelo_simpson_final_glmm)
+```
+
+Ahora hacemos PERMANOVA, NMDS y SIMPER con los datos del CONTEO de pajaritos
+
+```{r}
+# PERMANOVA, NMDS Y SIMPER
+# NMDS y vegdist solo conteos, permanova y simper conteos y zona
+#tiene que ser una matriz con los datos de los pajaros y las zonas 
+tibble(avesyzona)
+
+# Paso 2: Correr el PERMANOVA con la fórmula correcta
+# Usamos la matriz de distancias y especificamos dónde encontrar el factor 'zona'
+permanova_conteo <- adonis2(soloaves ~ avesyzona$zona, method= "bray", permutations = 999)
+
+print(permanova_conteo)
+
+#como permanova tiene p valor inferior a 0.05, existen diferencias entre las comunidades segun la zona
+
+# 1. Ejecutar el NMDS
+# 'k=2' para 2 dimensiones, 'trymax=100' para asegurar una buena solución
+nmds_resultado <- metaMDS(soloaves, 
+                          distance = "bray", 
+                          k = 2, 
+                          trymax = 100)
+
+# 2. Verificar el Stress
+
+ 
+# creo dataframe NMDS
+datos_nmds <- data.frame(nmds_resultado$points) %>%
+  rename(NMDS1 = MDS1, NMDS2 = MDS2)
+
+# añado zona
+datos_nmds$zona <- basecompleta$zona
+
+grafico_nmds <- datos_nmds %>%
+  ggplot(aes(x = NMDS1, y = NMDS2, color = zona, fill = zona)) +
+  geom_point(size = 3, alpha = 0.7) +
+  stat_ellipse(geom = "polygon", alpha = 0.2, level = 0.95, linewidth = 0.7) +
+  labs(title = "NMDS de la Comunidad de Aves (Bray-Curtis)",
+       subtitle = paste("Stress =", round(nmds_resultado$stress, 3))) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_viridis_d(option = "D") +
+  scale_color_viridis_d(option = "D")
+
+print(grafico_nmds)
+```
+
+```{r}
+#hago un modelo glmm
+#modelos glmm
+#riqueza de aves
+mod_riqueza_glmm <- glmer(
+  riqueza_aves ~ zona + temperatura_st + riquezavegetal_st + luminosidad_st + coberturavegetal_st + (1 | estacion),
+  data= basecompleta,
+  family = gaussian)
+
+summary(mod_riqueza_glmm)
+library(MuMIn)
+options(na.action = "na.fail")
+dredge(mod_riqueza_glmm)
+
+# en este caso, el mejor modelo es el 19: tiene en cuenta zona y luminosidad 
+mod_riqueza_glmmfinal <- glmer(
+  riqueza_aves ~ zona + luminosidad_st + (1 | estacion),
+  data= basecompleta,
+  family = gaussian)
+
+summary(mod_riqueza_glmmfinal)
+
+```
+
+```{r}
+#tengo que revisar la normalidad de los residuos
+residuos_riqglmm <- resid(mod_riqueza_glmmfinal) #extraigo los residuos del modelo
+qqnorm(residuos_riqglmm) #genero un grafico QQplot
+qqline(residuos_riqglmm) #dibujo linea de referencia diagonal en el QQplot
+shapiro.test(residuos_riqglmm) # el valor es normal
+
+# homogeneidad de varianzas: 
+# Añadir los residuales al dataframe para la prueba
+basecompleta$residuos_riqglmm <- residuos_riqglmm
+
+# Ejecutar la prueba de Levene sobre los residuales agrupados por zona
+leveneTest(residuos_riqglmm ~ zona, data = basecompleta)
+
+# p mayor a 0.05: es lo deseado, existe homogeneidad de varianzas
+
+# gráfico de Residuales vs. Ajustados (Homogeneidad de Varianzas)
+valores_ajustados_riqglmm <- fitted(mod_riqueza_glmmfinal)
+plot(valores_ajustados_riqglmm, residuos_riqglmm,
+     xlab = "Valores Ajustados",
+     ylab = "Residuales",
+     main = "Residuales vs. Valores Ajustados: Riqueza de especies")
+
+# añado una línea de referencia en Y = 0
+abline(h = 0, col = "purple4", lty = 2)
+
+# la tendencia es plana: homogeneidad de varianzas
+```
+

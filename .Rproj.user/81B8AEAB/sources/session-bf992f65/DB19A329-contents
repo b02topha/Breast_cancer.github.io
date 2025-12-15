@@ -1,0 +1,221 @@
+---
+title: |
+  ![](logoUCO.png){width="15%"} 
+  Ejercicio con script de Adrián
+  ![](logofac.png){width="15%"}
+author: "Andrea Torres Philpott (b02topha@uco.es)"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+bibliography: [zotero.bib, libraries.bib]
+link-citations: true
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ATAJOS
+
+CTRL + SHIFT + M: %>% 
+En código: ALT + -: <-
+CTRL + ALT + I: Escribir código 
+CTRL + SHIFT + K : Knit
+
+
+## ENCABEZADO
+
+. Encabezado YAML. Modifica el encabezado del archivo .Rmd para que:\
+-En el html final aparezca como título “Informe NILs” y autor “Nombre
+Apellidos y vuestro [correo\@uco.es](mailto:correo@uco.es){.email}.”\
+-La fecha sea aumática.\
+-La salida en html tenga índice y secciones numeradas
+`toc:true number_sections:true` -En la bibliografía incluye a
+“zotero.bib” y “libraries.bib”. Activa los links de las citas.
+`bibliography: [zotero.bib, libraries.bib]` `link-citations: true`
+
+## LOGOS
+
+Incluir logo de la UCO y el del la facultad de ciencias, tamaño width=
+15%, en el encabezado  Para incluir logo de la UCO:\
+`![](logoUCO.png){width="15%"}`
+
+Para incluir logo de la facultad de ciencias:
+`![](logofac.png){width="15%"}`
+
+## FORMATO TEXTO
+
+Vamos a trabajar con los datos de @perez2024phenotypic. Este trabajo
+describe [genes
+candidatos]{style="color:green;font=family:verdana;font-size:20px;"} de
+la floración en [garbanzo]{style="color:red;"} (*Cicer arietinum*) como **MED16**, **BBX24** o **ELF3**,
+este último también reportado por otros estudios como @ridge_chickpea_2017 
+Los mecanismos básicos de floración estudiados en la planta modelo
+*Arabidopsis thaliana* están conservados en las leguminosas [@weller_genetic_2019; @hecht_conservation_2005; @weller_genetic_2015], exceptuando ciertos genes
+como ***CONSTANS*** [@wong_isolation_2014].
+
+Por defecto: `{style="color:red;font-family:verdana;font-size:20px;"}` es más facil `{style:"color:green;"}` 
+Ejemplo con arial: `{style="color:red;font-family:Arial,sans-serif;font-size:20px;"}`
+Para poner notas a pie de página `[^N]` palabra[^1]\ 
+
+[^1]: Esto es para hacer un pie de página
+
+> Para citar ponemos `>`
+
+# Los datos
+
+## Importamos los datos 
+```{r warning=FALSE, echo=FALSE, message=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+
+data <- read_excel("C:/R/tema8/12870_2024_5411_MOESM1_ESM.xlsx", skip = 1)
+```
+
+Los datos fueron descargados desde [NILs Adrián](https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-024-05411-y) 
+
+## Primera vista de los datos
+```{r vista-datos, echo=FALSE}
+knitr::kable(head(data,8), align= 'c', caption= "Tabla 1: Ocho primeras filas")
+
+```
+
+## El código en línea
+
+Los datos tienen `r nrow(data)` filas y `r ncol(data)` columnas.
+Cada fila se corresponde con un SNP, por tanto, hay `r nrow(data)` SNPs.
+
+## Filtramos los datos para quedarnos solo con los cromosomas (códigos empiezan por NC_)
+```{r filtro-crom, include= FALSE}
+crom <- data %>% 
+  filter(CHROM %in% c("NC_021160.1","NC_021161.1", "NC_021162.1", "NC_021163.1", "NC_021164.1", "NC_021165.1","NC_021166.1", "NC_021167.1")) #seleccionamos los cromosomas
+
+```
+
+Del total de SNPs detectados, `r nrow(crom)` se corresponden con SNPs situados en cromosomas (Figura 1).
+
+## Calcula el número de SNPs por cromosoma detectados con la función `count`. Guarda los datos ordenados de forma descendiente en un nuevo objeto "Cromosoma".
+```{r cromosoma-con-mas-SNP, echo= FALSE}
+Cromosomas <- crom %>% 
+  count(CHROM) %>% 
+  arrange(desc(n)) #para ordenarlos de mayor a menor
+```
+
+## Utiliza la variable nueva "Cromosoma" para hacer un gráfico de barras incluyendo el pie de figura "Figura 1. Número de SNPs por cromosomas". Posición centrada y tamaño reducido al 60% del ancho de texto. Con nombre a los ejes
+
+```{r grafico-cromosoma-SNP, echo= FALSE, out.width="60%", fig.cap= "Figura 1. Número de SNPs por cromosomas", fig.align='center'}
+Cromosomas %>% 
+  ggplot(aes(x= CHROM, y= n, fill= CHROM)) +
+  geom_col(show.legend= FALSE) +
+  labs(x= "Cromosomas", #para nombrar ejes
+       y= "Número de SNPs",
+       ) +
+  theme_bw() +
+  scale_fill_viridis_d(option= "D") #son valores discretos, colores colourblind friendly
+
+```
+# Hipótesis
+Nuestra hipótesis es que los cromosomas con mayor número de SNPs presentan mayor % de SNPs que no pasan el filtro de calidad
+
+# Materiales y métodos
+Para llevar a cabo el análisis usamos R [@R-base] con las librerías dplyr [@R-dplyr] y ggplot [@R-ggplot2; @ggplot22016].
+Para la creación de este informe hemos utilizado el paquete knitr [@R-knitr; @knitr2015, @knitr2014] y pandoc.
+
+# Resultados
+
+## Selecciona del dataset 'crom' únicamente las columnas **CHROM**, **POS**, **FILTER**
+
+```{r seleccion-columnas, echo= FALSE}
+datos_filtrados <- crom %>% 
+  select(CHROM, POS, FILTER)
+
+```
+
+## Crea una nueva variable en la que todo valor distinto de **PASS** se transforme en **NOT_PASS**
+
+```{r recodificacion, echo= FALSE}
+datos_filtrados <- datos_filtrados %>% 
+  mutate(FILTER = ifelse(FILTER == "PASS", "PASS", "NOT_PASS")) #creamos una nueva columna que pasa el filtro = PASS y si no es ese valor, sale NOT_PASS
+
+```
+
+## Cálculo de porcentajes por cromosoma
+```{r, echo=FALSE}
+#Calcular el número total de SNPs y el porcentaje de NOT_PASS por cromosoma
+resumen_relacion <- datos_filtrados %>% 
+  group_by(CHROM) %>% #separo los cromosomas
+  summarise( #el total de filas se colapsa en una sola fila de resultados
+    Total_SNPs = n(), #numero total de SNPs, cuentan las filas
+    Not_pass = sum(FILTER == "NOT_PASS"), #cuenta el numero de veces que aparece not_pass
+    Porcentaje_not_pass = round(Not_pass / Total_SNPs * 100, 1)
+  )
+
+```
+
+El porcentajes de SNPs que no pasan el filtro se muestra en la tabla 2.
+
+```{r, echo=FALSE}
+knitr::kable(
+  resumen_relacion %>% 
+    mutate(Porcentaje_not_pass = paste0(Porcentaje_not_pass, "%")),
+  caption= "Tabla 2. Porcentaje de SNPs que pasan y no pasan el filtro por cromosoma"
+) #añado el % al lado del resultado
+```
+
+## Representación gráfica
+El siguiente modelo muestra la relación entre el número total y los SNPs no filtrados (Figura 2)
+
+```{r grafico-relacion, echo=FALSE, warning=FALSE, message=FALSE, fig.cap= "Fig 2. Relación entre el número total de SNPs y el porcentaje de SNPs que no pasan el filtro de calidad"}
+resumen_relacion %>% 
+  ggplot(aes(x= Total_SNPs, y= Porcentaje_not_pass)) +
+  geom_jitter(alpha= 0.7, color = "purple3", size= 3) +
+  geom_smooth(method = "lm", se= FALSE, color= "purple4") +
+  labs(x= "Número total de SNPs por cromosoma",
+       y= "% de SNPs que no pasan el filtro") 
+#geom_jitter es lo mismo que geom_point pero es mejor porque no superpone los puntos, idealmente también meter algo de estadística que nos ha enseñado Jose
+```
+
+```{r correlacion, echo=FALSE}
+correlacion <- cor(resumen_relacion$Total_SNPs, resumen_relacion$Porcentaje_not_pass)
+print(correlacion)
+```
+El coeficiente de correlación es `r round(correlacion, 2)`, r^2= cor^2, si es por ejemplo 0.09, se explica un 9% de la varianza
+
+# Conclusiones
+
+Los datos no apoyan nuestra hipótesis, dice lo contrario: los cromosomas en los que se detectan menor número de SNPs, presentan mayor porcentaje de SNPs que no pasan el filtro
+
+## Formato\ 
+Apartado principal # Primer apartado secundario ## Sub apartado primero del primer apartado secundario ### Hasta 6 almohadillas
+
+Para separar líneas dentro de un mismo párrafo se usa\
+Para separar párrafos se deja una línea vacía Para insertar un salto de página se utiliza la etiqueta \newpage Para insertar citas se utiliza el signo > y se añade un espacio antes del inicio de párrafo
+
+> hola
+
+Para insertar sangría se utiliza | al inicio de párrafo Para insertar notas al pie Tablas se elaboran manualmente
+
+---
+Horizontal rule  
+---
+
+```       
+multiple lines
+of verbatim code
+```
+
+
+
+## Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
+
+# Información de la sesión y referencias
+```{r sesion-info, echo=FALSE}
+session <- sessionInfo()
+print(session)
+```
+
