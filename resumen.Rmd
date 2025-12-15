@@ -8,12 +8,11 @@ title: |
 author: "Andrea Murillo Espinar, Andrea Torres Philpott"
 date: "`r Sys.Date()`"
 output:
-  github_document:
-    html_preview: false
   html_document:
     highlight: tango # colores 
     css: estilos_personalizados.css
     toc: true
+    toc_float: true
     number_sections: true
 bibliography: ["breast_cancer.bib", "libraries.bib"]
 link-citations: true
@@ -232,7 +231,7 @@ unique(datos_clinicos$her2_status)
 
 Asumimos que "Negative" significa ausencia de receptor.
 Usaremos el data frame original de datos clínicos.
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 datos_tnbc <- datos_clinicos %>%
   select(overall_survival_months, overall_survival, 
          er_status, pr_status, her2_status) %>%
@@ -259,7 +258,7 @@ km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 ```
 
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggsurvplot(km_tnbc, 
            data = datos_tnbc,
            pval = TRUE,             # Mostrar p-valor
@@ -277,7 +276,8 @@ summary(cox_tnbc_model)
 
 Existen diferencias significativas, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
 
-```{r}
+# Carga mutacional por subtipo de cáncer de mama
+```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE}
 # vamos a hacerlo otra vez omitiendo NC
   # Limpieza y preparación de datos (Ajustado)
 datos_combinados <- data %>% 
@@ -316,7 +316,7 @@ filter(!is.na(`pam50_._claudin.low_subtype`) &
 Quiero ver cuantas pacientes son pre-post menopáusicas
 ## Limpieza y preparación
 # Creo un data frame limpio solo con la variable de interés, eliminando valores vacíos o NAs.
-```{r}
+```{r dfmenop, echo=FALSE, message=FALSE, warning=FALSE}
 datos_grafico_menopausia <- datos_clinicos %>%
   filter(!is.na(inferred_menopausal_state) & inferred_menopausal_state != "") %>%
   mutate(inferred_menopausal_state = factor(inferred_menopausal_state))
@@ -325,7 +325,7 @@ datos_grafico_menopausia <- datos_clinicos %>%
 
 
 # 2. Genero el gráfico de barras
-```{r}
+```{r graficomenop, echo=FALSE, message=FALSE, warning=FALSE}
 grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
                                     aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
   geom_bar() +
@@ -344,5 +344,5 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
 print(grafico_barras_menopausia)
 ```
 
-
+# Bibliografía 
 

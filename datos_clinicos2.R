@@ -56,8 +56,7 @@ surv_object_her2 <- Surv(time = datos_her2$overall_survival_months,
 ## 2. Crear el objeto de supervivencia
 # Tiempo: overall_survival_months
 # Evento: overall_survival (1=fallecido, 0=vivo/censurado)
-surv_object_her2 <- Surv(time = datos_her2_supervivencia$overall_survival_months, 
-                         event = datos_her2_supervivencia$overall_survival)
+surv_object_her2 <- Surv(time = datos_her2_supervivenciia$overall_survival)
 
 # 3. Ajustar el Modelo de Kaplan-Meier
 # Ajustamos la supervivencia en función del estado HER2

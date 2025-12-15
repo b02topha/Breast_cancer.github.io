@@ -63,11 +63,11 @@ print(genes_encontrados_expresion) #(5/5)
 
 
 # y a ver si están en mutaciones
-genes_encontrados_expresion <- colnames(datos_mutaciones) %>%
+genes_encontrados_expresion_mut <- colnames(datos_mutaciones) %>%
   grep(paste(genes_buscados, collapse = "|"), ., value = TRUE, ignore.case = TRUE)
 
 print("Genes encontrados en la tabla de Expresión (Z-Scores):")
-print(genes_encontrados_expresion)
+print(genes_encontrados_expresion_mut)
 #hay mutaciones de ch1, brca1, brca2 y chek2
 
 ##############################3

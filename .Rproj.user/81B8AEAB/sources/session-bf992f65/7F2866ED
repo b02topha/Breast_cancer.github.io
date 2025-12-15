@@ -3,9 +3,9 @@
     "path": "C:/R/Breast_cancer/datos_clinicos2.R",
     "project_path": "datos_clinicos2.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "56035620",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1765389165141.0,
     "source_on_save": false,
     "relative_order": 4,
@@ -17,11 +17,11 @@
         "scrollLine": "3"
     },
     "folds": "",
-    "lastKnownWriteTime": 1765807461,
+    "lastKnownWriteTime": 1765816768,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1765812059367,
+    "last_content_update": 1765816768479,
     "read_only": false,
     "read_only_alternatives": []
 }

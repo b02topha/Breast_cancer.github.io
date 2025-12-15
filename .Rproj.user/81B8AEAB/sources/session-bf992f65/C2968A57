@@ -3,9 +3,9 @@
     "path": "C:/R/Breast_cancer/geneticos.R",
     "project_path": "geneticos.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "1001589726",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1765159937021.0,
     "source_on_save": false,
     "relative_order": 3,
@@ -17,11 +17,11 @@
         "scrollLine": "67"
     },
     "folds": "",
-    "lastKnownWriteTime": 1765807464,
+    "lastKnownWriteTime": 1765816773,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1765814826331,
+    "last_content_update": 1765816773693,
     "read_only": false,
     "read_only_alternatives": []
 }
