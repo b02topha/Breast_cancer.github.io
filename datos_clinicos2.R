@@ -263,3 +263,4 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
 
 print(grafico_barras_menopausia)
+

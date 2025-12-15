@@ -102,6 +102,9 @@ cor.test(grafico_mutationz$brca2, grafico_mutationz$mutation_count, method= "pea
 
 # grafico conteo de mutaciones frente subtipo
 # Asumiendo que 'datos_combinados' está unido y limpio de NAs en las columnas
+unique(data$pam50_._claudin.low_subtype)
+
+
 datos_combinados <- data %>% 
   select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
   filter(!is.na(`pam50_._claudin.low_subtype`) & !is.na(mutation_count)) 
@@ -117,6 +120,38 @@ datos_combinados <- data %>%
   ) +
   theme_bw() +
   scale_fill_viridis_d()
+  
+  
+# vamos a hacerlo otra vez omitiendo NC
+  # Limpieza y preparación de datos (Ajustado)
+datos_combinados <- data %>% 
+select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
+    
+    # AÑADIR FILTRO PARA ELIMINAR "NC" (Not Classified)
+filter(!is.na(`pam50_._claudin.low_subtype`) & 
+             !is.na(mutation_count) & 
+             `pam50_._claudin.low_subtype` != "NC") 
+  
+  # Nota: Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
+  # Para asegurarnos de que desaparezca del gráfico, convertimos la columna a factor, 
+  # forzando a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
+  datos_combinados <- datos_combinados %>%
+    mutate(`pam50_._claudin.low_subtype` = factor(`pam50_._claudin.low_subtype`))
+  
+  
+  # Gráfico (Box-Violin Plot)
+  datos_combinados %>% 
+    ggplot(aes(x = `pam50_._claudin.low_subtype`, y = mutation_count, fill = `pam50_._claudin.low_subtype`)) +
+    geom_violin(alpha = 0.6, show.legend = FALSE) + 
+    geom_boxplot(width = 0.1, color = "black", alpha = 0.7, show.legend = FALSE) + 
+    labs(
+      title = "Carga Mutacional por Subtipo Molecular PAM50",
+      x = "Subtipo Molecular",
+      y = "Conteo de Mutaciones",
+      fill = "Subtipo" 
+    ) +
+    theme_bw() +
+    scale_fill_viridis_d()
 
 #existen diferencias significativas?
 #voy a usar kruskal wallis
