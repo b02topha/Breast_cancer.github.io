@@ -24,6 +24,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#cargo las dependencias
 library(readxl)
 library(dplyr)
 library(naniar)
@@ -48,56 +49,56 @@ El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purpl
 Con la información proporcionada por la base de datos, dividimos los datos en *datos clínicos* y *datos genéticos*
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
-data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv") #cargamos la base de datos
+data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv") # Cargamos la base de datos descargada de Kaggle
 
 col_datosclinicos <- colnames(data) %>% 
-  head(n = 31) #muestro base de datos parcialmente
+  head(n = 31) # Muestro base de datos parcialmente
 
 datos_clinicos <- data %>% 
-  select(col_datosclinicos) #selecciono datos clinicos de toda la base de datos (data)
+  select(col_datosclinicos) # Selecciono datos clinicos de toda la base de datos (data)
 
-# convierto valores vacíos a NA
+# Convierto valores vacíos a NA
 datos_clinicos[datos_clinicos == ""] <- NA
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
-dim(datos_clinicos) #veo las dimensiones de la tabla
+dim(datos_clinicos) # Veo las dimensiones de la tabla
 str(datos_clinicos) 
 ```
 
 ```{r datosgeneticos, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-#hago lo mismo pero para los datos genéticos
+# Hago lo mismo pero para los datos genéticos
 datos_geneticos <- data %>% 
-  select(32:693) #sabemos que el resto son genéticos
+  select(32:693) # Sabemos que el resto son genéticos
 ```
+La base de datos global tiene `r nrow(data)` filas y `r ncol(data)` columnas.
+Cada fila se corresponde con un paciente, por tanto, hay `r nrow(datos_clinicos)` pacientes.\  
 
+Los *datos clínicos* tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.\  
 
-Los *datos clínicos* tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.
-Cada fila se corresponde con un paciente, por tanto, hay `r nrow(datos_clinicos)` pacientes.\   
+Los *datos genéticos* tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.\  
 
-Los *datos genéticos* tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.
+# Dataset (METABRIC)
+Esta base de datos ha sido usada por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicStratification2018
 
-# Artículos donde sale el dataset (METABRIC)
-Usado por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicStratification2018
-
-# Gráfico de tumor_stage
+# Supervivencia en función del estadio del tumor
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # 1. Limpieza y preparación de datos
 datos_grafico_tumor <- datos_clinicos %>%
-  # Paso A: Convertir a caracter para manejar la cadena vacía
+  # 1.2. Lo convierto a carácter para manejar la cadena vacía
   mutate(tumor_stage = as.character(tumor_stage)) %>%
-  # Paso B: Convertir espacios vacíos ("") a NA
+  # 1.3. Convierto espacios vacíos ("") a NA
   mutate(tumor_stage = na_if(tumor_stage, "")) %>%
-  # Paso C: Filtrar todos los NA (los originales y los recién creados)
+  # 1.4. Filtro todos los NA (los originales y los recién creados)
   filter(!is.na(tumor_stage)) %>%
-  # Paso D: Convertir la columna a factor para la gráfica
-  mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que sea ordenado
+  # 1.5. Convierto la columna a factor para la gráfica
+  mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que esté ordenado
 
 
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-# 2. Generar el Gráfico de Caja (Box Plot)
+# 2. Genero el Box Plot
 boxplot_supervivenciafinal <- datos_grafico_tumor %>%
   ggplot(aes(x = tumor_stage, y = overall_survival_months, fill = tumor_stage)) +
   geom_boxplot(show.legend= FALSE) +
@@ -110,9 +111,9 @@ boxplot_supervivenciafinal <- datos_grafico_tumor %>%
   ) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) +
-  scale_fill_viridis_d(option= "D") #colourblind friendly
+  scale_fill_viridis_d(option= "D") # Colourblind friendly
 
-print(boxplot_supervivenciafinal)
+print(boxplot_supervivenciafinal) # Muestro el resultado final
 ```
 
 ¿Son datos significativos? 
@@ -140,23 +141,22 @@ Para ver entre qué grupos existe diferencia significativa
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # Existen diferencias significativas?
 
-#Comprobamos normalidad
-shapiro.test(datos_grafico_tumor$overall_survival_months) # distribución no normal
-kruskal.test(overall_survival_months ~ tumor_stage, data= datos_grafico_tumor) #existen diferencias
+# Comprobamos normalidad
+shapiro.test(datos_grafico_tumor$overall_survival_months) # Siguen una distribución no normal
+kruskal.test(overall_survival_months ~ tumor_stage, data= datos_grafico_tumor) # Existen diferencias
 
 # 1. Preparar el data frame para Dunn's Test
 # Usamos las columnas de supervivencia y el tumor_stage limpio.
 datos_dunn <- datos_clinicos %>%
-  # Limpieza del tumor_stage (misma lógica que antes)
+  # Limpieza del tumor_stage
   mutate(tumor_stage = as.character(tumor_stage)) %>%
   mutate(tumor_stage = na_if(tumor_stage, "")) %>%
   filter(!is.na(tumor_stage) & !is.na(overall_survival_months)) %>%
   
-  # Asegurar que la variable de agrupamiento es un factor
+  # Aseguramos que la variable de agrupamiento (tumor stage) es un factor
   mutate(tumor_stage = factor(tumor_stage))
 
-# 2. Ejecutar el Test de Dunn con corrección de Bonferroni
-# (Reemplazando tu variable original `datos_grafico_tumor` por `datos_dunn`)
+# 2. Ejecutamos el Test de Dunn con corrección de Bonferroni
 resultado_dunn <- dunnTest(overall_survival_months ~ tumor_stage,
                            data = datos_dunn, 
                            method = "bonferroni")
@@ -171,39 +171,33 @@ A mayor etapa de tumor, peor supervivencia.
 
 # Pronóstico cáncer Her2+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-# quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
+# Quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
 str(datos_clinicos$her2_status)
 
-#importante que no tenga NA y que sea un factor
+# Importante que no tenga NA y que sea un factor, como antes
 datos_her2 <- datos_clinicos %>%
   filter(!is.na(her2_status)) %>%
   # Convertimos a factor, aunque es probable que ya lo sea
   mutate(her2_status = factor(her2_status))
-str(datos_her2) #ahora si es un factor
+str(datos_her2) # Ahora sí es un factor
 
 
 unique(datos_clinicos$overall_survival)
 str(datos_clinicos$overall_survival_months)
 
-# 2. Crear el Objeto de Supervivencia (Surv Object)
-# 'overall_survival_months' = tiempo
-# 'overall_survival' = evento (1=fallecido, 0=vivo/censurado)
-surv_object_her2 <- Surv(time = datos_her2$overall_survival_months, 
-                         event = datos_her2$overall_survival)
 
-
-## 2. Crear el objeto de supervivencia
+## 2. Creamos el objeto de supervivencia
 # Tiempo: overall_survival_months
 # Evento: overall_survival (1=fallecido, 0=vivo/censurado)
 surv_object_her2 <- Surv(time = datos_her2$overall_survival_months, 
                          event = datos_her2$overall_survival)
 
-# 3. Ajustar el Modelo de Kaplan-Meier
+# 3. Ajustamos el Modelo de Kaplan-Meier
 # Ajustamos la supervivencia en función del estado HER2
 fit_km_her2 <- survfit(surv_object_her2 ~ her2_status, data = datos_her2)
 
-# 4. Generar el Gráfico y el Log-rank Test
+# 4. Generamos el Gráfico y el Log-rank Test
 km_her2_plot <- ggsurvplot(fit_km_her2, 
                            data = datos_her2,
                            pval = TRUE,             # Muestra el valor p de la prueba Log-rank
@@ -213,16 +207,16 @@ km_her2_plot <- ggsurvplot(fit_km_her2,
                            palette = c("purple4", "#2E9FDF") # Colores para HER2- y HER2+
 )
 
-print(km_her2_plot)
+print(km_her2_plot) # Muestro el resultado final
 ```
 
 ```{r}
-#Calculamos el Modelo de Cox
+# Calculamos el Modelo de Cox
 # La fórmula es: objeto_supervivencia ~ predictor
 cox_her2_model <- coxph(surv_object_her2 ~ her2_status, 
                         data = datos_her2)
 
-# 2. Imprimir el resumen del modelo para obtener el Hazard Ratio (HR)
+# 2. Imprimimos el resumen del modelo para obtener el Hazard Ratio (HR)
 print("--- Resumen del Modelo de Cox para Estado HER2 ---")
 summary(cox_her2_model)
 ```
@@ -246,7 +240,7 @@ datos_tnbc <- datos_clinicos %>%
   select(overall_survival_months, overall_survival, 
          er_status, pr_status, her2_status) %>%
   
-  # 1. Crear la variable TNBC_status
+  # 1. Creamos la variable TNBC_status, subtipo triple negativo.
   mutate(
     TNBC_status = case_when(
       er_status == "Negative" & pr_status == "Negative" & her2_status == "Negative" ~ "TNBC",
@@ -254,16 +248,16 @@ datos_tnbc <- datos_clinicos %>%
     )
   ) %>%
   
-  # 2. Filtrar filas con NAs en los marcadores de supervivencia
+  # 2. Filtramos filas con NAs en los marcadores de supervivencia
   filter(!is.na(overall_survival_months) & !is.na(overall_survival)) %>%
   
-  # 3. Convertir a factor para el análisis
+  # 3. Convertimos a factor para el análisis
   mutate(TNBC_status = factor(TNBC_status))
 
-# 4. Crear el objeto de supervivencia
+# 4. Creamos el objeto de supervivencia
 surv_object_tnbc <- Surv(datos_tnbc$overall_survival_months, 
                          datos_tnbc$overall_survival)
-# A. Kaplan-Meier (Ver la diferencia visual y obtener el p-valor)
+# A. Kaplan-Meier (Vemos la diferencia visual y obtenemos el p-valor)
 km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 ```
 
@@ -271,12 +265,12 @@ km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggsurvplot(km_tnbc, 
            data = datos_tnbc,
-           pval = TRUE,             # Mostrar p-valor
-           risk.table = TRUE,       # Mostrar tabla de riesgo
+           pval = TRUE,             # Muestro p-valor
+           risk.table = TRUE,       # Muestro tabla de riesgo
            legend.title = "Estado Triple Negativo",
            title = "Supervivencia Global (TNBC vs. No-TNBC)")
 
-# B. Modelo de Cox (Cuantificar el riesgo HR)
+# B. Modelo de Cox (Cuantifico el riesgo HR)
 cox_tnbc_model <- coxph(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 
 print("Resumen del Modelo de Cox para TNBC:")
@@ -288,24 +282,24 @@ Existen diferencias significativas, "El cáncer de mama Triple Negativo (TNBC) s
 
 # Carga mutacional por subtipo de cáncer de mama
 ```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE}
-# vamos a hacerlo otra vez omitiendo NC
+# Vamos a hacerlo otra vez omitiendo NC
   # Limpieza y preparación de datos (Ajustado)
 datos_combinados <- data %>% 
 select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
     
-    # AÑADIR FILTRO PARA ELIMINAR "NC" (Not Classified)
+    # AÑADO FILTRO PARA ELIMINAR "NC" (Not Classified)
 filter(!is.na(`pam50_._claudin.low_subtype`) & 
              !is.na(mutation_count) & 
              `pam50_._claudin.low_subtype` != "NC") 
   
-  # Nota: Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
+  # Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
   # Para asegurarnos de que desaparezca del gráfico, convertimos la columna a factor, 
-  # forzando a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
+  # Fuerzo a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
   datos_combinados <- datos_combinados %>%
     mutate(`pam50_._claudin.low_subtype` = factor(`pam50_._claudin.low_subtype`))
   
   
-  # Gráfico (Box-Violin Plot)
+  # Creo el Box-Violin Plot
   datos_combinados %>% 
     ggplot(aes(x = `pam50_._claudin.low_subtype`, y = mutation_count, fill = `pam50_._claudin.low_subtype`)) +
     geom_violin(alpha = 0.6, show.legend = FALSE) + 
@@ -321,12 +315,13 @@ filter(!is.na(`pam50_._claudin.low_subtype`) &
 
 ```
 
-# Ahora quiero ver si está relacionado estar en pre-post menopausia con el cáncer de mama
+# Menopausia y cáncer de mama
 
-Quiero ver cuantas pacientes son pre-post menopáusicas
-## Limpieza y preparación
-# Creo un data frame limpio solo con la variable de interés, eliminando valores vacíos o NAs.
+Quiero ver cuantas pacientes son pre/post menopáusicas\  
+
+Creo un data frame limpio solo con la variable de interés, eliminando valores vacíos o NAs.
 ```{r dfmenop, echo=FALSE, message=FALSE, warning=FALSE}
+#  Limpieza y preparación 
 datos_grafico_menopausia <- datos_clinicos %>%
   filter(!is.na(inferred_menopausal_state) & inferred_menopausal_state != "") %>%
   mutate(inferred_menopausal_state = factor(inferred_menopausal_state))
@@ -334,13 +329,13 @@ datos_grafico_menopausia <- datos_clinicos %>%
 ```
 
 
-# 2. Genero el gráfico de barras
+Genero el gráfico de barras
 ```{r graficomenop, echo=FALSE, message=FALSE, warning=FALSE}
 grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
                                     aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
   geom_bar() +
   
-  # Añadir las etiquetas de conteo encima de cada barra
+  # Añado las etiquetas de conteo encima de cada barra
   geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5, size = 5) +
   
   labs(title = "Distribución de Pacientes por Estado Menopáusico",
