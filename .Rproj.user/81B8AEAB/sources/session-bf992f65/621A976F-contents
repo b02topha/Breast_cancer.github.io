@@ -8,12 +8,13 @@ title: |
 author: "Andrea Murillo Espinar, Andrea Torres Philpott"
 date: "`r Sys.Date()`"
 output:
-  html_document:
+  bookdown::html_document2:
     highlight: tango # colores 
     css: estilos_personalizados.css
     toc: true
     toc_float: true
     number_sections: true
+    fig_caption: true
 bibliography: ["breast_cancer.bib", "libraries.bib"]
 link-citations: true
 
@@ -31,6 +32,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("survival")
 #install.packages("survminer")
 #install.packages("stats")
+#install.packages("knitr")
+#install.packages("bookdown")
 ```
 
 
@@ -42,6 +45,8 @@ library(FSA) #para la función dunnTest(): post-hoc
 library(survival) #para generar los objetos de la supervivencia
 library(survminer) #para la creación de curvas de supervivencia
 library(stats) #para realización de test de normalidad, kruskal..
+library(knitr) #combinación de texto, gráficos..
+library(bookdown) #para que la numeración y pie de figuras funcionen correctamente
 ```
 
 # **Introducción**
@@ -52,7 +57,21 @@ El desarrollo de las tecnologías de análisis de expresión génica a gran esca
 El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purple;"} nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
 
 # Materiales y métodos
-He usado los paquetes 
+
+## Tratamiento y análisis de datos
+Con la librería `dplyr` hemos seleccionado, manipulado y limpiado la base de datos. [@R-dplyr]  
+
+El análisis de supervivencia se realizó con el paquete `survival` : incluye curvas de Kaplan-Meier y los modelos de regresión de Cox (Univariante y Multivariante) [@survival-package; @survival-book]  
+
+Para la comparación entre grupos en el análisis no paramétrico se utilizó la prueba post-hoc Dunn's, mediante el paquete `FSA`. [@fsa]  
+
+## Visualización
+Las gráficas se realizaron con el paquete `ggplot2` [@R-ggplot2; @ggplot22016]
+Para la representación de las curvas de Kaplan-Meier empleamos el paquete `survminer` [@survminer]  
+
+## Generación del informe
+Para la creación de este informe hemos utilizado el paquete knitr [@R-knitr; @knitr2015, @knitr2014] y pandoc.  
+
 
 # Tratamiento de datos
 Con la información proporcionada por la base de datos, dividimos los datos en *datos clínicos* y *datos genéticos*
@@ -106,14 +125,14 @@ datos_grafico_tumor <- datos_clinicos %>%
 
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Supervivencia Global por etapa del Tumor(METABRIC)."}
 # 2. Genero el Box Plot
 boxplot_supervivenciafinal <- datos_grafico_tumor %>%
   ggplot(aes(x = tumor_stage, y = overall_survival_months, fill = tumor_stage)) +
   geom_boxplot(show.legend= FALSE) +
   geom_jitter(color="black", size=0.4, alpha=0.5, show.legend = FALSE) +
   labs(
-    title = "Supervivencia Global por Etapa del Tumor (METABRIC)",
+    title= "Supervivencia Global en función del estadio del tumor",
     x = "Etapa del Tumor",
     y = "Supervivencia Global (Meses)",
     fill = "Etapa"
@@ -326,6 +345,7 @@ Sesgo de selección: La quimioterapia no está causando la muerte. Es un tratami
 
 El estado her2+, en análisis univariante es pronóstico, pero no es un predictor en la supervivencia si se hace un modelo con quimioterapia y estadio tumoral
 
+
 # Pronóstico cáncer Triple negativo
 
 Ahora vamos a ver el pronóstico del cáncer Triple negativo, se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
@@ -409,17 +429,20 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
   labs(title = "Distribución de Pacientes por Estado Menopáusico",
        x = "Estado Menopáusico",
        y = "Número de Pacientes") +
-  
   theme_minimal() +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  scale_fill_viridis_d(option= "D")
+  scale_fill_viridis_d(option= "D") +
+  coord_cartesian(ylim = c(0, 1600)) #ajuste de eye de la Y
 
 print(grafico_barras_menopausia)
 ```
 
 # Conclusión
+El análisis de los perfiles de expresión génica en cáncer de mama constituye una herramienta fundamental para comprender la complejidad biológica de los distintos subtipos de esta enfermedad. Los estudios actuales demuestran que la integración de datos genómicos y clínicos permiten identificar los subgrupos con diferencias pronósticas y terapéuticas claras, es decir, no solo mejora la clasificación molecular de los tumores, sino que además ofrece información valiosa para decidir clínicamente. [@amevorIntegrativePrognosticModeling2025]
+Estos avances indican que la bioinformática no solo ayuda a entender de manera molecular al cáncer de mama, sino que también tiene un impacto directo en la calidad de vida de las pacientes, ya que, posibilita tratamientos más personalizados y mejora la predicción de resultados clínicos, contribuyendo a estrategias terapéuticas más eficaces y menos tóxicas. [@hsiehMultigeneExpressionAssays2025]
 
-# Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
+# Reproducibilidad
+Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
 
 ## Información de la sesión y referencias
 ```{r sesion-info, echo=FALSE}
