@@ -27,29 +27,23 @@ knitr::opts_chunk$set(echo = TRUE)
 #instala los paquetes si no los tienes
 #install.packages("readxl")
 #install.packages("dplyr")
-#install.packages("naniar")
 #install.packages("ggplot2")
-#install.packages("tidyr")
 #install.packages("FSA")
 #install.packages("survival")
 #install.packages("survminer")
-#install.packages("splines")
 #install.packages("stats")
 ```
 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 #cargo las dependencias
-library(readxl)
-library(dplyr)
-library(naniar)
-library(ggplot2)
-library(tidyr)
-library(FSA)
-library(survival)
-library(survminer)
-library(splines)
-library(stats)
+library(readxl) #para cargar la base de datos que es un excel
+library(dplyr) #para manipulación y limpieza de datos
+library(ggplot2) #para la generación de gráficos
+library(FSA) #para la función dunnTest(): post-hoc
+library(survival) #para generar los objetos de la supervivencia
+library(survminer) #para la creación de curvas de supervivencia
+library(stats) #para realización de test de normalidad, kruskal..
 ```
 
 # **Introducción**
@@ -187,6 +181,9 @@ Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
 # Pronóstico cáncer Her2+
+
+## Modelo univariante
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # Quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
@@ -240,6 +237,52 @@ summary(cox_her2_model)
 
 Interpretación: existen diferencias significativas en la supervivencia global entre subtipos Her2+ y Her2-.
 El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cualquier momento en comparación con otros subtipos de cáncer de mama.
+
+## Modelo multivariante
+
+Hacemos un modelo multivariante para ver si el riesgo asociado a Her2 se ve afectado por otros factores como: etapa del tumor, edad, quimioterapia.
+```{r}
+# 1. Seleccionamos y limpiamos solo las filas necesarias para el modelo multivariante
+datos_multivariante <- datos_clinicos %>%
+  select(overall_survival_months, overall_survival, # Variables de tiempo/evento
+         her2_status, tumor_stage, age_at_diagnosis, chemotherapy) %>% # Covariables
+  
+  # Filtramos NAs de las variables del modelo
+  filter(!is.na(her2_status) & 
+           !is.na(tumor_stage) & 
+           !is.na(age_at_diagnosis) & 
+           !is.na(chemotherapy)) %>%
+  
+  # Las variables categóricas tienen que ser factores
+  mutate(her2_status = factor(her2_status),
+         tumor_stage = factor(tumor_stage),
+         chemotherapy = factor(chemotherapy)) 
+```
+
+
+
+```{r}
+# 2. Creamos el objeto de supervivencia (Surv Object)
+surv_object_multi <- Surv(time = datos_multivariante$overall_survival_months, 
+                          event = datos_multivariante$overall_survival)
+```
+
+
+```{r}
+# 3. Modelo de Cox Multivariante
+cox_multivariante_model <- coxph(
+  surv_object_multi ~ her2_status + tumor_stage + age_at_diagnosis + chemotherapy,
+  data = datos_multivariante
+)
+```
+
+
+```{r}
+# 4. Muestro resultado del modelo
+summary(cox_multivariante_model) 
+```
+
+El estado her2+, en análisis univariante es pronóstico, pero no es un predictor en la supervivencia si se hace un modelo con quimioterapia y estadio tumoral
 
 # Pronóstico cáncer Triple negativo
 
@@ -365,6 +408,8 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
 
 print(grafico_barras_menopausia)
 ```
+
+# Conclusión
 
 # Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
 

@@ -25,31 +25,23 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 #instala los paquetes si no los tienes
-#install.packages("readxl")
 #install.packages("dplyr")
-#install.packages("naniar")
 #install.packages("ggplot2")
-#install.packages("tidyr")
 #install.packages("FSA")
 #install.packages("survival")
 #install.packages("survminer")
-#install.packages("splines")
 #install.packages("stats")
 ```
 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 #cargo las dependencias
-library(readxl)
-library(dplyr)
-library(naniar)
-library(ggplot2)
-library(tidyr)
-library(FSA)
-library(survival)
-library(survminer)
-library(splines)
-library(stats)
+library(dplyr) #para manipulación y limpieza de datos
+library(ggplot2) #para la generación de gráficos
+library(FSA) #para la función dunnTest(): post-hoc
+library(survival) #para generar los objetos de la supervivencia
+library(survminer) #para la creación de curvas de supervivencia
+library(stats) #para realización de test de normalidad, kruskal..
 ```
 
 # **Introducción**
@@ -133,8 +125,10 @@ boxplot_supervivenciafinal <- datos_grafico_tumor %>%
 print(boxplot_supervivenciafinal) # Muestro el resultado final
 ```
 
-¿Son datos significativos? 
+¿Son datos significativos?\  
+
 ## Test de normalidad
+
 Primero realizamos una prueba de normalidad mediante `shapiro.test`.
 
 H~0~: La distribución de la supervivencia global sigue una distribución normal \    
@@ -186,7 +180,48 @@ La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente
 Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
+# Carga mutacional por subtipo de cáncer de mama
+```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE}
+# Vamos a hacerlo otra vez omitiendo NC
+  # Limpieza y preparación de datos (Ajustado)
+datos_combinados <- data %>% 
+select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
+    
+    # AÑADO FILTRO PARA ELIMINAR "NC" (Not Classified)
+filter(!is.na(`pam50_._claudin.low_subtype`) & 
+             !is.na(mutation_count) & 
+             `pam50_._claudin.low_subtype` != "NC") 
+  
+  # Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
+  # Para asegurarnos de que desaparezca del gráfico, convertimos la columna a factor, 
+  # Fuerzo a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
+  datos_combinados <- datos_combinados %>%
+    mutate(`pam50_._claudin.low_subtype` = factor(`pam50_._claudin.low_subtype`))
+  
+  
+  # Creo el Box-Violin Plot
+  datos_combinados %>% 
+    ggplot(aes(x = `pam50_._claudin.low_subtype`, y = mutation_count, fill = `pam50_._claudin.low_subtype`)) +
+    geom_violin(alpha = 0.6, show.legend = FALSE) + 
+    geom_boxplot(width = 0.1, color = "black", alpha = 0.7, show.legend = FALSE) + 
+    labs(
+      title = "Carga Mutacional por Subtipo Molecular PAM50",
+      x = "Subtipo Molecular",
+      y = "Conteo de Mutaciones",
+      fill = "Subtipo" 
+    ) +
+    theme_bw() +
+    scale_fill_viridis_d()
+
+```
+
+
 # Pronóstico cáncer Her2+
+
+## Modelo univariante
+
+Seleccionamos variables de supervivencia y subtipo Her2.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # Quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
@@ -240,6 +275,56 @@ summary(cox_her2_model)
 
 Interpretación: existen diferencias significativas en la supervivencia global entre subtipos Her2+ y Her2-.
 El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cualquier momento en comparación con otros subtipos de cáncer de mama.
+
+## Modelo multivariante
+
+Hacemos un modelo multivariante para ver si el riesgo asociado a Her2 se ve afectado por otros factores como: etapa del tumor, edad, quimioterapia.
+```{r}
+# 1. Seleccionamos y limpiamos solo las filas necesarias para el modelo multivariante
+datos_multivariante <- datos_clinicos %>%
+  select(overall_survival_months, overall_survival, # Variables de tiempo/evento
+         her2_status, tumor_stage, age_at_diagnosis, chemotherapy) %>% # Covariables
+  
+  # Filtramos NAs de las variables del modelo
+  filter(!is.na(her2_status) & 
+           !is.na(tumor_stage) & 
+           !is.na(age_at_diagnosis) & 
+           !is.na(chemotherapy)) %>%
+  
+  # Las variables categóricas tienen que ser factores
+  mutate(her2_status = factor(her2_status),
+         tumor_stage = factor(tumor_stage),
+         chemotherapy = factor(chemotherapy)) 
+```
+
+
+
+```{r}
+# 2. Creamos el objeto de supervivencia (Surv Object)
+surv_object_multi <- Surv(time = datos_multivariante$overall_survival_months, 
+                          event = datos_multivariante$overall_survival)
+```
+
+
+```{r}
+# 3. Modelo de Cox Multivariante
+cox_multivariante_model <- coxph(
+  surv_object_multi ~ her2_status + tumor_stage + age_at_diagnosis + chemotherapy,
+  data = datos_multivariante
+)
+```
+
+
+```{r}
+# 4. Muestro resultado del modelo
+summary(cox_multivariante_model) 
+```
+
+El factor que más afecta al riesgo de muerte es la quimioterapia, ya que p<0.05, HR: 1.85 Esto significa que los pacientes que recibieron quimioterapia tienen un riesgo de muerte 1.85 veces (85% de riesgo) mayor que aquellos que no la recibieron. 
+
+Sesgo de selección: La quimioterapia no está causando la muerte. Es un tratamiento administrado a pacientes con cáncer avanzado, más agresivo, con peor pronóstico. Por lo tanto, el modelo muestra la asociación entre la quimioterapia y el riesgo.
+
+El estado her2+, en análisis univariante es pronóstico, pero no es un predictor en la supervivencia si se hace un modelo con quimioterapia y estadio tumoral
 
 # Pronóstico cáncer Triple negativo
 
@@ -297,40 +382,6 @@ summary(cox_tnbc_model)
 
 Existen diferencias significativas, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
 
-# Carga mutacional por subtipo de cáncer de mama
-```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE}
-# Vamos a hacerlo otra vez omitiendo NC
-  # Limpieza y preparación de datos (Ajustado)
-datos_combinados <- data %>% 
-select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
-    
-    # AÑADO FILTRO PARA ELIMINAR "NC" (Not Classified)
-filter(!is.na(`pam50_._claudin.low_subtype`) & 
-             !is.na(mutation_count) & 
-             `pam50_._claudin.low_subtype` != "NC") 
-  
-  # Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
-  # Para asegurarnos de que desaparezca del gráfico, convertimos la columna a factor, 
-  # Fuerzo a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
-  datos_combinados <- datos_combinados %>%
-    mutate(`pam50_._claudin.low_subtype` = factor(`pam50_._claudin.low_subtype`))
-  
-  
-  # Creo el Box-Violin Plot
-  datos_combinados %>% 
-    ggplot(aes(x = `pam50_._claudin.low_subtype`, y = mutation_count, fill = `pam50_._claudin.low_subtype`)) +
-    geom_violin(alpha = 0.6, show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, color = "black", alpha = 0.7, show.legend = FALSE) + 
-    labs(
-      title = "Carga Mutacional por Subtipo Molecular PAM50",
-      x = "Subtipo Molecular",
-      y = "Conteo de Mutaciones",
-      fill = "Subtipo" 
-    ) +
-    theme_bw() +
-    scale_fill_viridis_d()
-
-```
 
 # Menopausia y cáncer de mama
 
@@ -365,6 +416,8 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
 
 print(grafico_barras_menopausia)
 ```
+
+# Conclusión
 
 # Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
 
