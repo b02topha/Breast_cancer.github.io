@@ -23,6 +23,21 @@ link-citations: true
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+#instala los paquetes si no los tienes
+#install.packages("readxl")
+#install.packages("dplyr")
+#install.packages("naniar")
+#install.packages("ggplot2")
+#install.packages("tidyr")
+#install.packages("FSA")
+#install.packages("survival")
+#install.packages("survminer")
+#install.packages("splines")
+#install.packages("stats")
+```
+
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 #cargo las dependencias
 library(readxl)
@@ -44,6 +59,8 @@ El desarrollo de las tecnologías de análisis de expresión génica a gran esca
 
 El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purple;"} nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
 
+# Materiales y métodos
+He usado los paquetes 
 
 # Tratamiento de datos
 Con la información proporcionada por la base de datos, dividimos los datos en *datos clínicos* y *datos genéticos*
@@ -117,7 +134,7 @@ print(boxplot_supervivenciafinal) # Muestro el resultado final
 ```
 
 ¿Son datos significativos? 
-### Test de normalidad
+## Test de normalidad
 Primero realizamos una prueba de normalidad mediante `shapiro.test`.
 
 H~0~: La distribución de la supervivencia global sigue una distribución normal \    
@@ -126,7 +143,7 @@ H~1~: La distribución de la supervivencia global no sigue una distribución nor
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, la distribución de mis datos no siguen una distribución normal.
 
-### Test de Kruskal wallis
+## Test de Kruskal wallis
 
 Para ver si existen diferencias significativas en la supervivencia global entre las etapas del tumor, realizamos un test de Kruskal Wallis, ya que mis datos siguen una distribución no paramétrica.
 
@@ -135,7 +152,7 @@ H~1~: Existen diferencias significativas entre las etapas del tumor
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor
 
-### Test post-hoc Dunn's
+## Test post-hoc Dunn's
 Para ver entre qué grupos existe diferencia significativa
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
