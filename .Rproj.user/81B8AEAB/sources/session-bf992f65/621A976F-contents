@@ -25,7 +25,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-#instala los paquetes si no los tienes
+# Instala los paquetes necesarios si no los tienes aún
 #install.packages("dplyr")
 #install.packages("ggplot2")
 #install.packages("FSA")
@@ -38,18 +38,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
-#cargo las dependencias
-library(dplyr) #para manipulación y limpieza de datos
-library(ggplot2) #para la generación de gráficos
-library(FSA) #para la función dunnTest(): post-hoc
-library(survival) #para generar los objetos de la supervivencia
-library(survminer) #para la creación de curvas de supervivencia
-library(stats) #para realización de test de normalidad, kruskal..
-library(knitr) #combinación de texto, gráficos..
-library(bookdown) #para que la numeración y pie de figuras funcionen correctamente
+# Cargo las dependencias
+library(dplyr) # Para la manipulación y limpieza de datos
+library(ggplot2) # Para la generación de gráficos
+library(FSA) # Para la función dunnTest(): post-hoc
+library(survival) # Para generar los objetos de supervivencia
+library(survminer) # Para la creación de curvas de supervivencia
+library(stats) # Para realización de test de normalidad, kruskal..
+library(knitr) # Combinación de texto, gráficos..
+library(bookdown) # Para que la numeración y pie de figuras funcionen correctamente
 ```
 
-# **Introducción**
+
+# Introducción
 El cáncer de mama es una enfermedad que presenta una amplia variabilidad tanto a nivel clínico como molecular. En un inicio se clasificaba en base al **grado tumoral**, el **tamaño** o el **estado ganglionar**, pero estos criterios son insuficientes para poder explicar las diferencias en el pronóstico y la respuesta al tratamiento que se observan entre pacientes incluso con características clínicas similares. (@perouMolecularPortraitsHuman2000)\  
 
 El desarrollo de las tecnologías de análisis de expresión génica a gran escala (microarrays o secuenciación de ARN) ha permitido una caracterización más precisa a nivel molecular del cáncer de mama. Los primeros estudios demostraron que se pueden agrupar los tumores mamarios en **subtipos moleculares** *distintos* y cada uno de ellos, con características biológicas y clínicas específicas. Entre los subtipos encontramos: *Luminal A*, *Luminal B*, *HER2-positivo*, *Claudin-low* y *Basal-like*, los cuales difieren en la expresión de genes relacionados con receptores hormonales, proliferación celular y vías oncogénicas clave. (@sorlieRepeatedObservationBreast2003)\  
@@ -76,14 +77,22 @@ Para la creación de este informe hemos utilizado el paquete knitr [@R-knitr; @k
 # Tratamiento de datos
 Con la información proporcionada por la base de datos, dividimos los datos en *datos clínicos* y *datos genéticos*
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
-data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv") # Cargamos la base de datos descargada de Kaggle
+1. Cargamos la base de datos descargada de Kaggle
+2. Muestro la base de datos parcialmente
+3. Selecciono los datos clínicos y los genéticos
+4. Convierto valores vacíos a NA
 
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# 1. Cargamos la base de datos
+data <- read.csv("C:/Users/usuario/Downloads/archive/METABRIC_RNA_Mutation.csv")
+
+# 2. Muestro base de datos parcialmente
 col_datosclinicos <- colnames(data) %>% 
-  head(n = 31) # Muestro base de datos parcialmente
+  head(n = 31) # Son los datos clínicos
 
+# Selecciono los datos clínicos
 datos_clinicos <- data %>% 
-  select(col_datosclinicos) # Selecciono datos clinicos de toda la base de datos (data)
+  select(col_datosclinicos)
 
 # Convierto valores vacíos a NA
 datos_clinicos[datos_clinicos == ""] <- NA
@@ -94,38 +103,59 @@ dim(datos_clinicos) # Veo las dimensiones de la tabla
 str(datos_clinicos) 
 ```
 
-```{r datosgeneticos, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+```{r datosgeneticos, echo=TRUE, message=FALSE, warning=FALSE}
 # Hago lo mismo pero para los datos genéticos
 datos_geneticos <- data %>% 
-  select(32:693) # Sabemos que el resto son genéticos
+  select(32:693) # Sabemos que el resto son datos genéticos
+
+# Convierto valores vacíos a NA
+datos_geneticos[datos_geneticos == ""] <- NA
 ```
-La base de datos global tiene `r nrow(data)` filas y `r ncol(data)` columnas.
+
+La ***base de datos global*** tiene `r nrow(data)` filas y `r ncol(data)` columnas.
 Cada fila se corresponde con un paciente, por tanto, hay `r nrow(datos_clinicos)` pacientes.\  
 
-Los *datos clínicos* tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.\  
+Los ***datos clínicos*** tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_clinicos)` columnas.\  
 
-Los *datos genéticos* tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.\  
+Los ***datos genéticos*** tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.\  
 
 # Dataset (METABRIC)
 Esta base de datos ha sido usada por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicStratification2018
 
-# Supervivencia en función del estadio del tumor
+# Supervivencia 
+
+## En función del estadio del tumor
+
+Limpieza y preparación de datos\  
+
+1. Hemos seleccionado del conjunto de `datos_clinicos` las variables de interés: `tumor_stage` y `overall_survival_months`
+2. Convertimos los espacios vacíos a NA 
+3. Filtramos los NA
+4. Convertimos `tumor_stage`a factor para la gráfica.
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # 1. Limpieza y preparación de datos
 datos_grafico_tumor <- datos_clinicos %>%
-  # 1.2. Lo convierto a carácter para manejar la cadena vacía
+  # 1.2. Selecciono las columnas de interés
+  select(tumor_stage, overall_survival_months) %>% 
+  # 1.3. Convierto tumor_stage a carácter para quitar los valores vacíos
   mutate(tumor_stage = as.character(tumor_stage)) %>%
-  # 1.3. Convierto espacios vacíos ("") a NA
+  # 1.4. Convierto espacios vacíos ("") a NA
   mutate(tumor_stage = na_if(tumor_stage, "")) %>%
-  # 1.4. Filtro todos los NA (los originales y los recién creados)
+  # 1.5. Filtro todos los NA
   filter(!is.na(tumor_stage)) %>%
-  # 1.5. Convierto la columna a factor para la gráfica
+  # 1.6. Convierto la columna a factor para la gráfica
   mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que esté ordenado
-
 
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Supervivencia Global por etapa del Tumor(METABRIC)."}
+
+Generación y visualización de la gráfica\  
+
+1. Mediante `geom_boxplot` y `geom_jitter` generamos la figura \@ref(fig:grafico-superv-estadiotumor)
+2. Muestro la figura
+
+```{r grafico-superv-estadiotumor, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Supervivencia Global por etapa del Tumor(METABRIC)."}
 # 2. Genero el Box Plot
 boxplot_supervivenciafinal <- datos_grafico_tumor %>%
   ggplot(aes(x = tumor_stage, y = overall_survival_months, fill = tumor_stage)) +
@@ -146,7 +176,7 @@ print(boxplot_supervivenciafinal) # Muestro el resultado final
 
 ¿Son datos significativos?\  
 
-## Test de normalidad
+### Test de normalidad
 
 Primero realizamos una prueba de normalidad mediante `shapiro.test`.
 
@@ -156,7 +186,7 @@ H~1~: La distribución de la supervivencia global no sigue una distribución nor
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, la distribución de mis datos no siguen una distribución normal.
 
-## Test de Kruskal wallis
+### Test de Kruskal wallis
 
 Para ver si existen diferencias significativas en la supervivencia global entre las etapas del tumor, realizamos un test de Kruskal Wallis, ya que mis datos siguen una distribución no paramétrica.
 
@@ -165,10 +195,10 @@ H~1~: Existen diferencias significativas entre las etapas del tumor
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor
 
-## Test post-hoc Dunn's
+### Test post-hoc Dunn's
 Para ver entre qué grupos existe diferencia significativa
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, tab.cap="Tabla de resultados del Test de Dunn's."}
 # Existen diferencias significativas?
 
 # Comprobamos normalidad
@@ -191,8 +221,22 @@ resultado_dunn <- dunnTest(overall_survival_months ~ tumor_stage,
                            data = datos_dunn, 
                            method = "bonferroni")
 
-print("Resultado del Test Post-Hoc de Dunn (Bonferroni):")
-print(resultado_dunn)
+# 3. Extraigo el data frame con los resultados
+tabla_dunn <- resultado_dunn$res # Tengo que extraer "res" del dataframe
+# 4. Hacemos más legibles los resultados, redondeando el valor
+dunn_final <- tabla_dunn %>%
+  select(Comparison, Z, P.unadj, P.adj) %>% 
+  # Redondear los valores para una mejor presentación
+  mutate(across(c(Z, P.unadj, P.adj), ~ round(., 5))) %>% 
+  # Selecciono solo valores estadísticamente significativos
+  filter(P.adj< 0.05)
+
+# 4. Genero la tabla usando kable, para que se vea mejor (en vez de print(resultado_dunn))
+knitr::kable(
+  dunn_final,
+  format = "html", # Puedes cambiar a "latex" si el output es PDF
+  align = "lcccr" # Centra los headers y las columnas
+)
 ```
 
 La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente de la 2, 3 y 4.
@@ -200,7 +244,7 @@ Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
 A mayor etapa de tumor, peor supervivencia.
 
 # Carga mutacional por subtipo de cáncer de mama
-```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE}
+```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Carga mutacional por subtipo."}
 # Vamos a hacerlo otra vez omitiendo NC
   # Limpieza y preparación de datos (Ajustado)
 datos_combinados <- data %>% 
@@ -240,8 +284,7 @@ filter(!is.na(`pam50_._claudin.low_subtype`) &
 ## Modelo univariante
 
 Seleccionamos variables de supervivencia y subtipo Her2.
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 # Quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
 str(datos_clinicos$her2_status)
@@ -256,8 +299,10 @@ str(datos_her2) # Ahora sí es un factor
 
 unique(datos_clinicos$overall_survival)
 str(datos_clinicos$overall_survival_months)
+```
 
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Curvas de supervivencia en función de Her2."}
 ## 2. Creamos el objeto de supervivencia
 # Tiempo: overall_survival_months
 # Evento: overall_survival (1=fallecido, 0=vivo/censurado)
@@ -288,7 +333,7 @@ cox_her2_model <- coxph(surv_object_her2 ~ her2_status,
                         data = datos_her2)
 
 # 2. Imprimimos el resumen del modelo para obtener el Hazard Ratio (HR)
-print("--- Resumen del Modelo de Cox para Estado HER2 ---")
+print("Resumen del Modelo de Cox para Estado HER2")
 summary(cox_her2_model)
 ```
 
@@ -298,7 +343,7 @@ El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cu
 ## Modelo multivariante
 
 Hacemos un modelo multivariante para ver si el riesgo asociado a Her2 se ve afectado por otros factores como: etapa del tumor, edad, quimioterapia.
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # 1. Seleccionamos y limpiamos solo las filas necesarias para el modelo multivariante
 datos_multivariante <- datos_clinicos %>%
   select(overall_survival_months, overall_survival, # Variables de tiempo/evento
@@ -372,10 +417,8 @@ datos_tnbc <- datos_clinicos %>%
   
   # 2. Filtramos filas con NAs en los marcadores de supervivencia
   filter(!is.na(overall_survival_months) & !is.na(overall_survival)) %>%
-  
   # 3. Convertimos a factor para el análisis
   mutate(TNBC_status = factor(TNBC_status))
-
 # 4. Creamos el objeto de supervivencia
 surv_object_tnbc <- Surv(datos_tnbc$overall_survival_months, 
                          datos_tnbc$overall_survival)
@@ -395,7 +438,7 @@ ggsurvplot(km_tnbc,
 # B. Modelo de Cox (Cuantifico el riesgo HR)
 cox_tnbc_model <- coxph(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 
-print("Resumen del Modelo de Cox para TNBC:")
+print("Resumen del Modelo de Cox para TNBC")
 summary(cox_tnbc_model)
 
 ```
@@ -418,28 +461,32 @@ datos_grafico_menopausia <- datos_clinicos %>%
 
 
 Genero el gráfico de barras
-```{r graficomenop, echo=FALSE, message=FALSE, warning=FALSE}
+```{r graficomenop, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Distribución de la frecuencia del estado menopáusico en pacientes."}
 grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
                                     aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
   geom_bar() +
-  
   # Añado las etiquetas de conteo encima de cada barra
   geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5, size = 5) +
   
   labs(title = "Distribución de Pacientes por Estado Menopáusico",
        x = "Estado Menopáusico",
        y = "Número de Pacientes") +
+  # Pongo un theme más formal
   theme_minimal() +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  # Cambio los colores para que sean legibles para todo el mundo
   scale_fill_viridis_d(option= "D") +
-  coord_cartesian(ylim = c(0, 1600)) #ajuste de eye de la Y
+  # Ajusto el eje de la Y para que sean legibles las etiquetas
+  coord_cartesian(ylim = c(0, 1600))
 
 print(grafico_barras_menopausia)
 ```
 
 # Conclusión
-El análisis de los perfiles de expresión génica en cáncer de mama constituye una herramienta fundamental para comprender la complejidad biológica de los distintos subtipos de esta enfermedad. Los estudios actuales demuestran que la integración de datos genómicos y clínicos permiten identificar los subgrupos con diferencias pronósticas y terapéuticas claras, es decir, no solo mejora la clasificación molecular de los tumores, sino que además ofrece información valiosa para decidir clínicamente. [@amevorIntegrativePrognosticModeling2025]
-Estos avances indican que la bioinformática no solo ayuda a entender de manera molecular al cáncer de mama, sino que también tiene un impacto directo en la calidad de vida de las pacientes, ya que, posibilita tratamientos más personalizados y mejora la predicción de resultados clínicos, contribuyendo a estrategias terapéuticas más eficaces y menos tóxicas. [@hsiehMultigeneExpressionAssays2025]
+El análisis de los perfiles de expresión génica en cáncer de mama constituye una herramienta fundamental para comprender la complejidad biológica de los distintos subtipos de esta enfermedad. Los estudios actuales demuestran que la integración de datos genómicos y clínicos permiten identificar los subgrupos con diferencias pronósticas y terapéuticas claras, es decir, no solo mejora la clasificación molecular de los tumores, sino que además ofrece información valiosa para decidir clínicamente. [@amevorIntegrativePrognosticModeling2025]\   
+
+Estos avances indican que la bioinformática no solo ayuda a entender de manera molecular al cáncer de mama, sino que también tiene un impacto directo en la calidad de vida de las pacientes, ya que, posibilita tratamientos más personalizados y mejora la predicción de resultados clínicos, contribuyendo a estrategias terapéuticas más eficaces y menos tóxicas. [@hsiehMultigeneExpressionAssays2025]\  
+
 
 # Reproducibilidad
 Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la versión de software y paquetes
