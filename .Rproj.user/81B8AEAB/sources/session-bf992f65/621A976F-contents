@@ -55,7 +55,10 @@ El cáncer de mama es una enfermedad que presenta una amplia variabilidad tanto 
 
 El desarrollo de las tecnologías de análisis de expresión génica a gran escala (microarrays o secuenciación de ARN) ha permitido una caracterización más precisa a nivel molecular del cáncer de mama. Los primeros estudios demostraron que se pueden agrupar los tumores mamarios en **subtipos moleculares** *distintos* y cada uno de ellos, con características biológicas y clínicas específicas. Entre los subtipos encontramos: *Luminal A*, *Luminal B*, *HER2-positivo*, *Claudin-low* y *Basal-like*, los cuales difieren en la expresión de genes relacionados con receptores hormonales, proliferación celular y vías oncogénicas clave. (@sorlieRepeatedObservationBreast2003)\  
 
-El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purple;"} nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar de manera estadística la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
+El conjunto de datos [Breast Cancer Gene Expression Profiles]{style="color:purple;"} nos proporciona información sobre los perfiles de expresión génica y variables clínicas asociadas a tumores de mama, permitiéndonos explorar estadísticamente la relación entre los subtipos moleculares y distintas características biológicas del tumor.\   
+
+![Figura 1: Cánceres más frecuentemente diagnosticados en el mundo en ambos sexos. Fuente: GLOBOCAN 2020 @globocan .](C:/R/Breast_cancer/imagen.png)
+
 
 # Materiales y métodos
 
@@ -119,8 +122,12 @@ Los ***datos clínicos*** tienen `r nrow(datos_clinicos)` filas y `r ncol(datos_
 
 Los ***datos genéticos*** tienen `r nrow(datos_geneticos)` filas y `r ncol(datos_geneticos)` columnas.\  
 
+  
+
 # Dataset (METABRIC)
 Esta base de datos ha sido usada por @mucakiPredictingOutcomesHormone2017 y @mukherjeeAssociationsGenomicStratification2018
+
+  
 
 # Supervivencia 
 
@@ -145,7 +152,7 @@ datos_grafico_tumor <- datos_clinicos %>%
   # 1.5. Filtro todos los NA
   filter(!is.na(tumor_stage)) %>%
   # 1.6. Convierto la columna a factor para la gráfica
-  mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que esté ordenado
+  mutate(tumor_stage = factor(tumor_stage, ordered = TRUE)) # Aseguramos que está ordenado
 
 ```
 
@@ -174,6 +181,9 @@ boxplot_supervivenciafinal <- datos_grafico_tumor %>%
 print(boxplot_supervivenciafinal) # Muestro el resultado final
 ```
 
+La \@ref(fig:grafico-superv-estadiotumor) nos muestra la distribución de la supervivencia global en función del estadio del tumor en pacientes con Cáncer de Mama.\  
+Se puede observar una clara diferencia en la supervivencia entre estadios tumorales.
+
 ¿Son datos significativos?\  
 
 ### Test de normalidad
@@ -185,6 +195,7 @@ H~0~: La distribución de la supervivencia global sigue una distribución normal
 H~1~: La distribución de la supervivencia global no sigue una distribución normal
 
 Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, la distribución de mis datos no siguen una distribución normal.
+  
 
 ### Test de Kruskal wallis
 
@@ -193,10 +204,13 @@ Para ver si existen diferencias significativas en la supervivencia global entre 
 H~0~: No existen diferencias significativas entre las etapas del tumor\   
 H~1~: Existen diferencias significativas entre las etapas del tumor
 
-Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor
+Como p= 2.2e-16 < 0.05, rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, existen diferencias significativas entre las etapas del tumor.
 
+  
 ### Test post-hoc Dunn's
-Para ver entre qué grupos existe diferencia significativa
+
+Para ver entre qué grupos existe diferencia significativa tenemos que realizar un test post-hoc.   
+Concretamente usamos Dunn's ya que los datos no siguen una distribución paramétrica.
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, tab.cap="Tabla de resultados del Test de Dunn's."}
 # Existen diferencias significativas?
@@ -234,36 +248,42 @@ dunn_final <- tabla_dunn %>%
 # 4. Genero la tabla usando kable, para que se vea mejor (en vez de print(resultado_dunn))
 knitr::kable(
   dunn_final,
-  format = "html", # Puedes cambiar a "latex" si el output es PDF
+  format = "html",
   align = "lcccr" # Centra los headers y las columnas
 )
 ```
 
 La tasa de supervivencia es mayor en la etapa 1, es significativamente diferente de la 2, 3 y 4.
-Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.
+Diferencia de etapa 2 a 3, mejor tasa de supervivencia en la 2.\  
+
 A mayor etapa de tumor, peor supervivencia.
 
-# Carga mutacional por subtipo de cáncer de mama
+Estos resultados evidencian la tendencia decreciente de la supervivencia global a medida que el tumor avanza estadios.
+
+  
+
+# Carga mutacional por subtipo
+
+Seleccionamos `pam50_._claudin.low_subtype` (Subtipos de Cáncer de Mama) y `mutation_count`, preparamos los datos y creamos un gráfico.
+
 ```{r cancersubtipos, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Carga mutacional por subtipo."}
-# Vamos a hacerlo otra vez omitiendo NC
   # Limpieza y preparación de datos (Ajustado)
 datos_combinados <- data %>% 
 select(`pam50_._claudin.low_subtype`, mutation_count) %>% 
     
-    # AÑADO FILTRO PARA ELIMINAR "NC" (Not Classified)
+    # Elimino "NC" (Not Classified)
 filter(!is.na(`pam50_._claudin.low_subtype`) & 
              !is.na(mutation_count) & 
              `pam50_._claudin.low_subtype` != "NC") 
   
-  # Después de filtrar, R puede conservar los niveles 'NC' en la metadata.
   # Para asegurarnos de que desaparezca del gráfico, convertimos la columna a factor, 
   # Fuerzo a R a recalcular los niveles (se hace automáticamente si la columna ya era factor).
-  datos_combinados <- datos_combinados %>%
+datos_combinados <- datos_combinados %>%
     mutate(`pam50_._claudin.low_subtype` = factor(`pam50_._claudin.low_subtype`))
   
   
-  # Creo el Box-Violin Plot
-  datos_combinados %>% 
+  # Creo el gráfico y lo muestro
+cancersubt <- datos_combinados %>% 
     ggplot(aes(x = `pam50_._claudin.low_subtype`, y = mutation_count, fill = `pam50_._claudin.low_subtype`)) +
     geom_violin(alpha = 0.6, show.legend = FALSE) + 
     geom_boxplot(width = 0.1, color = "black", alpha = 0.7, show.legend = FALSE) + 
@@ -276,14 +296,23 @@ filter(!is.na(`pam50_._claudin.low_subtype`) &
     theme_bw() +
     scale_fill_viridis_d()
 
+print(cancersubt)
+
 ```
 
+La Figura \@ref(fig:cancersubtipos) nos permite observar la carga mutacional para los distintos subtipos moleculares de cáncer de mama definidos (Basal, Claudin-low, HER2, Luminal A, Luminal B y Normal)
 
+La gran mayoría de pacientes, independientemente de su subtipo, tienen una carga mutacional baja (entre 0 y 10 mutaciones).\  
+
+El subtipo Her2 muestra una tendencia hacia una carga mutacional superior en comparación al subtipo Claudin-Low.
+
+Lo más llamativo del gráfico son los **outliers**. El caso más extremo es Her2, ya que parece haber un paciente con 80 mutaciones. Esto puede deberse a un fallo o, si son verdaderas mutaciones, a alta inestabilidad genómica.
+  
 # Pronóstico cáncer Her2+
 
 ## Modelo univariante
 
-Seleccionamos variables de supervivencia y subtipo Her2.
+Seleccionamos variables de supervivencia (`overall_survival_months` y `overall_survival`) y estado de Her2 (`her2_status`)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 # Quiero relacionar survival months con her2_status: el cáncer her2+ es más agresivo frente al her2-, mi hipótesis es que va a tener menor supervivencia los her2+
 unique(datos_clinicos$her2_status)
@@ -302,14 +331,14 @@ str(datos_clinicos$overall_survival_months)
 ```
 
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Curvas de supervivencia en función de Her2."}
+```{r figuracox, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Curvas de supervivencia en función de Her2."}
 ## 2. Creamos el objeto de supervivencia
 # Tiempo: overall_survival_months
 # Evento: overall_survival (1=fallecido, 0=vivo/censurado)
 surv_object_her2 <- Surv(time = datos_her2$overall_survival_months, 
                          event = datos_her2$overall_survival)
 
-# 3. Ajustamos el Modelo de Kaplan-Meier
+# 3. Modelo de Kaplan-Meier
 # Ajustamos la supervivencia en función del estado HER2
 fit_km_her2 <- survfit(surv_object_her2 ~ her2_status, data = datos_her2)
 
@@ -327,7 +356,7 @@ print(km_her2_plot) # Muestro el resultado final
 ```
 
 ```{r}
-# Calculamos el Modelo de Cox
+# Modelo de Cox
 # La fórmula es: objeto_supervivencia ~ predictor
 cox_her2_model <- coxph(surv_object_her2 ~ her2_status, 
                         data = datos_her2)
@@ -337,8 +366,13 @@ print("Resumen del Modelo de Cox para Estado HER2")
 summary(cox_her2_model)
 ```
 
-Interpretación: existen diferencias significativas en la supervivencia global entre subtipos Her2+ y Her2-.
+La Figura \@ref(fig:figuracox) nos muestra las curvas de supervivencia global mediante el método de Kaplan-Meier para pacientes con Cáncer de Mama Her2+ o Her2-.\  
+
+Como p<0.05, sabemos que existen diferencias significativas en la supervivencia global entre subtipos Her2+ y Her2-.\  
+
 El cáncer de mama Her2+ se asocia con un riesgo de muerte de 33,91% mayor en cualquier momento en comparación con otros subtipos de cáncer de mama.
+
+  
 
 ## Modelo multivariante
 
@@ -388,20 +422,25 @@ El factor que más afecta al riesgo de muerte es la quimioterapia, ya que p<0.05
 
 Sesgo de selección: La quimioterapia no está causando la muerte. Es un tratamiento administrado a pacientes con cáncer avanzado, más agresivo, con peor pronóstico. Por lo tanto, el modelo muestra la asociación entre la quimioterapia y el riesgo.
 
-El estado her2+, en análisis univariante es pronóstico, pero no es un predictor en la supervivencia si se hace un modelo con quimioterapia y estadio tumoral
+El estado her2+, en análisis univariante es pronóstico, pero no es un predictor en la supervivencia si se tiene en cuenta quimioterapia, estadio tumoral y edad.
+  
 
 
 # Pronóstico cáncer Triple negativo
 
-Ahora vamos a ver el pronóstico del cáncer Triple negativo, se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2-
+Ahora vamos a ver cuál es el pronóstico del Cáncer Triple negativo.\  
+El Cáncer de Mama Triple Negativo (TNBC) se define por la ausencia de tres receptores, ER (receptor de estrógeno), PR (receptor de progesterona) y receptor HER2.
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 unique(datos_clinicos$er_status)
 unique(datos_clinicos$pr_status)
 unique(datos_clinicos$her2_status)
 ```
 
-Asumimos que "Negative" significa ausencia de receptor.
-Usaremos el data frame original de datos clínicos.
+Asumimos que "Negative" significa ausencia de receptor en las variables `er_status`, `pr_status` y `her2_status`
+
+Creamos una nueva variable `TNBC_status` seleccionando los valores negativos simultáneos en los receptores mencionados anteriormente. El resto de pacientes se agrupan en `Non_TNBC`, es decir, cualquier otro subtipo de cáncer de mama distinto de TNBC.
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 datos_tnbc <- datos_clinicos %>%
   select(overall_survival_months, overall_survival, 
@@ -422,12 +461,12 @@ datos_tnbc <- datos_clinicos %>%
 # 4. Creamos el objeto de supervivencia
 surv_object_tnbc <- Surv(datos_tnbc$overall_survival_months, 
                          datos_tnbc$overall_survival)
-# A. Kaplan-Meier (Vemos la diferencia visual y obtenemos el p-valor)
+# A. Kaplan-Meier
 km_tnbc <- survfit(surv_object_tnbc ~ TNBC_status, data = datos_tnbc)
 ```
 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r figsurv, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Supervivencia global TNBC vs TNBC."}
 ggsurvplot(km_tnbc, 
            data = datos_tnbc,
            pval = TRUE,             # Muestro p-valor
@@ -443,8 +482,15 @@ summary(cox_tnbc_model)
 
 ```
 
-Existen diferencias significativas, "El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC)
+La Figura \@ref(fig:figsurv) nos muestra las curvas de supervivencia global mediante el método de Kaplan-Meier para pacientes con Cáncer de Mama Triple Negativo (TNBC) y No Triple Negativo (No-TNBC) 
 
+Existen diferencias significativas, entre el subtipo Triple Negativo y No Triple Negativo.
+
+>"El cáncer de mama Triple Negativo (TNBC) se asocia con un riesgo de muerte 21.24% mayor en cualquier momento dado en comparación con otros subtipos de cáncer de mama (No-TNBC) [@cisternasCancerMamaTriple]
+
+Los resultados son coherentes, ya que el Cáncer de Mama Triple Negativo se asocia a un pronóstico más desfavorable por una mayor agresividad y a la ausencia de dianas terapéuticas específicas.
+
+  
 
 # Menopausia y cáncer de mama
 
@@ -460,7 +506,7 @@ datos_grafico_menopausia <- datos_clinicos %>%
 ```
 
 
-Genero el gráfico de barras
+Genero el gráfico de barras mediante `geom_bar`
 ```{r graficomenop, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Distribución de la frecuencia del estado menopáusico en pacientes."}
 grafico_barras_menopausia <- ggplot(datos_grafico_menopausia, 
                                     aes(x = inferred_menopausal_state, fill = inferred_menopausal_state)) +
@@ -482,7 +528,13 @@ grafico_barras_menopausia <- ggplot(datos_grafico_menopausia,
 print(grafico_barras_menopausia)
 ```
 
+La Figura \@ref(fig:graficomenop) representa la distribución de las pacientes con cáncer de mama según estado menopáusico, podemos observar que el conjunto de personas que forman parte de este estudio eran mayoritariamente pacientes post-menopáusicas **(1493 casos)** frente a pacientes pre-menopáusicas **(411 casos)**
+
+Esta diferencia refleja una distribución desigual entre ambos grupos. El estado predominante post-menopáusico indica que la mayoría de los casos corresponden a mujeres de mayor edad, siendo la edad un factor clave en los estudios clínicos.
+  
+
 # Conclusión
+
 El análisis de los perfiles de expresión génica en cáncer de mama constituye una herramienta fundamental para comprender la complejidad biológica de los distintos subtipos de esta enfermedad. Los estudios actuales demuestran que la integración de datos genómicos y clínicos permiten identificar los subgrupos con diferencias pronósticas y terapéuticas claras, es decir, no solo mejora la clasificación molecular de los tumores, sino que además ofrece información valiosa para decidir clínicamente. [@amevorIntegrativePrognosticModeling2025]\   
 
 Estos avances indican que la bioinformática no solo ayuda a entender de manera molecular al cáncer de mama, sino que también tiene un impacto directo en la calidad de vida de las pacientes, ya que, posibilita tratamientos más personalizados y mejora la predicción de resultados clínicos, contribuyendo a estrategias terapéuticas más eficaces y menos tóxicas. [@hsiehMultigeneExpressionAssays2025]\  

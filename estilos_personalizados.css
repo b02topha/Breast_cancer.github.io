@@ -1,9 +1,13 @@
 h1 {
-  color: #4B0082 !important; /*color morado oscuro para títulos h1 (# solo) */
+  color: #19071F !important; /*color morado oscuro para títulos h1 (# solo) */
 }
 
 h2 {
-  color: #purple !important; /*color morado para subtítulos h2 (##) */
+  color: #300D38 !important; /*color morado para subtítulos h2 (##) */
+}
+
+h3 {
+  color: #4B0082 !important; /*color morado para subtítulos h2 (##) */
 }
 
 .co {
@@ -23,4 +27,16 @@ p code, li code, ol code {
 pre code {
   background-color: transparent !important;
   padding: 0;
+}
+
+body {
+  font-size: 16px !important; /* Para que sea legible la letra en la presentación */
+  line-height: 1.7;           /* Aumento espacio entre líneas para que se vea menos apretado */
+  color: #1B1B1B;             /* Un gris casi negro, más suave para la vista */
+}
+
+/* Color de los enlaces y referencias (figuras, tablas, links) */
+a {
+  color: #4B0082 !important; /* Mismo tono morado que el título */
+  text-decoration: none;      /* Quita el subrayado */
 }
